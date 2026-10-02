@@ -4,7 +4,8 @@ const request = require('supertest');
 const { createApp } = require('../src/app');
 const { migrate } = require('../src/db/migrate');
 const { pool } = require('../src/db/pool');
-const { parseGpx, haversineKm, elevationGain } = require('../src/lib/gpx');
+const zlib = require('node:zlib');
+const { parseGpx, parseActivityFile, haversineKm, elevationGain } = require('../src/lib/gpx');
 
 const app = createApp();
 const run = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -278,7 +279,7 @@ describe('GPX', () => {
     assert.equal(parseGpx(Buffer.from(noMeta), 'Sunday loop.gpx').title, 'Sunday loop');
   });
   test('errors on non-GPX, bad XML, too few points, zero distance', () => {
-    assert.throws(() => parseGpx(Buffer.from('<html><body/></html>')), /Not a GPX/);
+    assert.throws(() => parseGpx(Buffer.from('<html><body/></html>')), /Not a GPX or TCX/);
     assert.throws(() => parseGpx(Buffer.from('not xml <<<')), /Invalid XML/);
     assert.throws(() => parseGpx(Buffer.from(gpx([{ lat: 1, lon: 1 }]))), /at least 2/);
     assert.throws(() => parseGpx(Buffer.from(gpx([{ lat: 1, lon: 1 }, { lat: 1, lon: 1 }]))), /zero distance/);
@@ -304,6 +305,80 @@ describe('GPX', () => {
     assert.equal((await A.post('/api/rides/import-gpx').field('bikeId', bike.id)).status, 400);
     assert.equal((await A.post('/api/rides/import-gpx').field('bikeId', bike.id).attach('file', Buffer.from('nope'), 'x.gpx')).status, 400);
     assert.equal((await B.post('/api/rides/import-gpx').field('bikeId', bike.id).attach('file', file, 'hill.gpx')).status, 404);
+  });
+});
+
+describe('Strava / Garmin files and route map', () => {
+  // Shape of a real Strava "Export GPX" file: extra namespaces, metadata time, per-point extensions
+  const strava = (name) => `<?xml version="1.0" encoding="UTF-8"?>
+<gpx creator="StravaGPX" version="1.1" xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1" xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3">
+ <metadata><time>2025-06-14T06:30:00Z</time></metadata>
+ <trk><name>${name}</name><type>gravel_ride</type><trkseg>
+${Array.from({ length: 200 }, (_, i) => `  <trkpt lat="${(45.6 + i * 0.0004).toFixed(6)}" lon="${(25.6 + Math.sin(i / 15) * 0.002).toFixed(6)}"><ele>${(600 + i * 0.4).toFixed(1)}</ele><time>2025-06-14T06:3${Math.floor(i / 60)}:${String(i % 60).padStart(2, '0')}Z</time><extensions><gpxtpx:TrackPointExtension><gpxtpx:hr>140</gpxtpx:hr><gpxtpx:cad>85</gpxtpx:cad></gpxtpx:TrackPointExtension></extensions></trkpt>`).join('\n')}
+ </trkseg></trk></gpx>`;
+  const tcx = `<?xml version="1.0"?><TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2"><Activities><Activity Sport="Biking"><Id>2025-07-01T08:00:00Z</Id><Lap StartTime="2025-07-01T08:00:00Z"><Track>
+    <Trackpoint><Time>2025-07-01T08:00:00Z</Time><Position><LatitudeDegrees>45.0</LatitudeDegrees><LongitudeDegrees>25.0</LongitudeDegrees></Position><AltitudeMeters>500</AltitudeMeters></Trackpoint>
+    <Trackpoint><Time>2025-07-01T08:30:00Z</Time><Position><LatitudeDegrees>45.05</LatitudeDegrees><LongitudeDegrees>25.0</LongitudeDegrees></Position><AltitudeMeters>540</AltitudeMeters></Trackpoint>
+  </Track></Lap></Activity></Activities></TrainingCenterDatabase>`;
+
+  test('parses a Strava-style GPX, including the simplified route', () => {
+    const r = parseActivityFile(Buffer.from(strava('Morning Gravel')), '1234.gpx');
+    assert.equal(r.title, 'Morning Gravel');
+    assert.equal(r.date, '2025-06-14T06:30:00.000Z');
+    assert.ok(r.distanceKm > 8 && r.distanceKm < 12);
+    assert.equal(r.durationMin, 3);
+    assert.ok(r.elevationM >= 70);
+    assert.ok(r.route.length >= 2 && r.route.length <= 200);
+    assert.deepEqual(r.route[0], [45.6, 25.6]);
+  });
+  test('duration skips long pauses', () => {
+    const pt = (i, t) => `<trkpt lat="${(45 + i * 0.001).toFixed(4)}" lon="25"><time>${t}</time></trkpt>`;
+    const gpx = `<gpx xmlns="http://www.topografix.com/GPX/1/1"><trk><trkseg>${[
+      pt(0, '2025-06-01T10:00:00Z'), pt(1, '2025-06-01T10:00:05Z'), pt(2, '2025-06-01T10:00:10Z'),
+      pt(3, '2025-06-01T10:30:10Z'), // 30 minute stop
+      pt(4, '2025-06-01T10:30:15Z'), pt(5, '2025-06-01T10:30:20Z'),
+    ].join('')}</trkseg></trk></gpx>`;
+    assert.equal(parseActivityFile(Buffer.from(gpx), 'x.gpx').durationMin, 0); // 20 s of movement
+  });
+  test('accepts gzipped GPX, TCX and planned routes (rte)', () => {
+    assert.equal(parseActivityFile(zlib.gzipSync(Buffer.from(strava('Zipped'))), 'a.gpx.gz').title, 'Zipped');
+    const t = parseActivityFile(Buffer.from(tcx), 'ride.tcx');
+    assert.ok(Math.abs(t.distanceKm - 5.56) < 0.05);
+    assert.equal(t.durationMin, 30);
+    assert.equal(t.elevationM, 40);
+    assert.equal(t.title, 'ride');
+    const rte = '<gpx xmlns="http://www.topografix.com/GPX/1/1"><rte><name>Plan</name><rtept lat="45" lon="25"/><rtept lat="45.01" lon="25"/></rte></gpx>';
+    const p = parseActivityFile(Buffer.from(rte), 'plan.gpx');
+    assert.equal(p.title, 'Plan');
+    assert.equal(p.durationMin, null);
+  });
+  test('import stores the track; /rides/routes returns it, scoped to the user', async () => {
+    const bike = await mkBike();
+    const up = await A.post('/api/rides/import-gpx').field('bikeId', bike.id).attach('file', Buffer.from(strava('Strava ride')), '99.gpx');
+    assert.equal(up.status, 201);
+    assert.equal(up.body.hasRoute, true);
+    await mkRide(bike.id, '2025-06-20T08:00:00Z', 20); // manual ride, no track
+
+    const routes = await A.get(`/api/rides/routes?bikeId=${bike.id}`);
+    assert.equal(routes.status, 200);
+    assert.equal(routes.body.length, 1);
+    assert.equal(routes.body[0].title, 'Strava ride');
+    assert.ok(Array.isArray(routes.body[0].points) && routes.body[0].points[0].length === 2);
+    const list = await A.get(`/api/rides?bikeId=${bike.id}`);
+    assert.deepEqual(list.body.map((r) => r.hasRoute).sort(), [false, true]);
+
+    assert.equal((await B.get('/api/rides/routes')).body.some((r) => r.id === up.body.id), false);
+    await A.delete(`/api/rides/${up.body.id}`);
+    const left = await pool.query('SELECT 1 FROM ride_tracks WHERE ride_id = $1', [up.body.id]);
+    assert.equal(left.rowCount, 0);
+  });
+  test('preview does not store anything', async () => {
+    const bike = await mkBike();
+    const p = await A.post('/api/rides/import-gpx').field('bikeId', bike.id).field('preview', 'true').attach('file', Buffer.from(strava('Preview')), 'p.gpx');
+    assert.equal(p.status, 200);
+    assert.ok(p.body.routePoints >= 2);
+    assert.equal((await A.get(`/api/rides/routes?bikeId=${bike.id}`)).body.length, 0);
   });
 });
 

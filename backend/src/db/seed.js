@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const { pool, one, query } = require('./pool');
 const { migrate } = require('./migrate');
+const DEMO_ROUTES = require('./demo-routes.json'); // real streets around Timisoara, see scripts/generate-demo-routes.js
 
 const DEMO_EMAIL = 'demo@bikeledger.app';
 const DEMO_PASSWORD = 'demo1234';
@@ -14,6 +15,10 @@ function makeRng(seed) {
     return s / 4294967296;
   };
 }
+
+const pick = (list, rng) => list[Math.floor(rng() * list.length)];
+// Real rides on the same route differ a little in length (detours, GPS noise)
+const jitterKm = (km, rng) => Math.round(km * (0.97 + rng() * 0.06) * 10) / 10;
 
 const dayStr = (daysAgo) => new Date(Date.now() - daysAgo * 86400000).toISOString().slice(0, 10);
 
@@ -38,32 +43,40 @@ async function seed() {
   );
 
   const rng = makeRng(20240601);
+  const gravelRoutes = DEMO_ROUTES.filter((r) => r.kind === 'gravel');
+  const commuteRoutes = DEMO_ROUTES.filter((r) => r.kind === 'commute');
   const rides = [];
   for (let d = DAYS; d >= 0; d--) {
     const date = new Date(Date.now() - d * 86400000);
     const dow = date.getUTCDay();
     if (rng() < 0.4) {
-      const km = Math.round((25 + rng() * 70) * 10) / 10;
+      // About two thirds of the gravel rides follow one of the saved routes, the rest are logged by hand
+      const route = rng() < 0.65 ? pick(gravelRoutes, rng) : null;
+      const km = route ? jitterKm(route.distanceKm, rng) : Math.round((25 + rng() * 70) * 10) / 10;
       rides.push({
-        bikeId: gravel.id, day: dayStr(d), hour: 8, km,
-        min: Math.round((km / (20 + rng() * 6)) * 60), ele: Math.round(km * (6 + rng() * 14)),
-        title: km > 70 ? 'Long gravel loop' : km > 45 ? 'Gravel ride' : 'Quick spin',
+        bikeId: gravel.id, day: dayStr(d), hour: 8, km, route,
+        min: Math.round((km / (20 + rng() * 6)) * 60), ele: Math.round(km * (1 + rng() * 2.5)),
+        title: route ? route.name : km > 70 ? 'Long gravel loop' : km > 45 ? 'Gravel ride' : 'Quick spin',
       });
     }
     if (dow >= 1 && dow <= 5 && rng() < 0.6) {
-      const km = Math.round((6 + rng() * 3) * 10) / 10;
+      const route = pick(commuteRoutes, rng);
+      const km = jitterKm(route.distanceKm, rng);
       rides.push({
-        bikeId: commuter.id, day: dayStr(d), hour: 7, km,
-        min: Math.round((km / 18) * 60), ele: Math.round(km * 4), title: 'Commute',
+        bikeId: commuter.id, day: dayStr(d), hour: 7, km, route,
+        min: Math.round((km / 18) * 60), ele: Math.round(km * 1.5), title: 'Commute',
       });
     }
   }
   for (const r of rides) {
-    await query(
+    const created = await one(
       `INSERT INTO rides (bike_id, date, title, distance_km, duration_min, elevation_m, source)
-       VALUES ($1,$2,$3,$4,$5,$6,'MANUAL')`,
-      [r.bikeId, `${r.day}T${String(r.hour).padStart(2, '0')}:00:00Z`, r.title, r.km, r.min, r.ele]
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+      [r.bikeId, `${r.day}T${String(r.hour).padStart(2, '0')}:00:00Z`, r.title, r.km, r.min, r.ele, r.route ? 'GPX' : 'MANUAL']
     );
+    if (r.route) {
+      await query('INSERT INTO ride_tracks (ride_id, points) VALUES ($1, $2)', [created.id, JSON.stringify(r.route.points)]);
+    }
   }
 
   // Wear in the seed data, used to pick max_km so each component lands on the intended status

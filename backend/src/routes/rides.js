@@ -1,10 +1,10 @@
 const express = require('express');
 const multer = require('multer');
-const { query, one, buildUpdate } = require('../db/pool');
+const { query, one, transaction, buildUpdate } = require('../db/pool');
 const { ah, HttpError, parseId } = require('../lib/http');
 const { assertBikeOwner, findOwned } = require('../lib/ownership');
 const schemas = require('../lib/schemas');
-const { parseGpx } = require('../lib/gpx');
+const { parseActivityFile } = require('../lib/gpx');
 const config = require('../lib/config');
 
 const router = express.Router();
@@ -12,28 +12,54 @@ const FIELDS = ['bikeId', 'date', 'title', 'distanceKm', 'durationMin', 'elevati
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: config.maxGpxBytes } });
 
 const withBike = (where) =>
-  `SELECT r.*, b.name AS bike_name FROM rides r JOIN bikes b ON b.id = r.bike_id WHERE ${where}`;
+  `SELECT r.*, b.name AS bike_name,
+     EXISTS (SELECT 1 FROM ride_tracks t WHERE t.ride_id = r.id) AS has_route
+   FROM rides r JOIN bikes b ON b.id = r.bike_id WHERE ${where}`;
+
+// Shared by the list and the map: optional bike and date filters on the user's rides.
+function rideFilters(q, userId) {
+  const params = [userId];
+  let where = 'b.user_id = $1';
+  if (q.bikeId) {
+    params.push(q.bikeId);
+    where += ` AND r.bike_id = $${params.length}`;
+  }
+  if (q.from) {
+    params.push(q.from);
+    where += ` AND (r.date AT TIME ZONE 'UTC')::date >= $${params.length}::date`;
+  }
+  if (q.to) {
+    params.push(q.to);
+    where += ` AND (r.date AT TIME ZONE 'UTC')::date <= $${params.length}::date`;
+  }
+  return { params, where };
+}
 
 router.get(
   '/',
   ah(async (req, res) => {
     const q = schemas.listQuery.parse(req.query);
-    const params = [req.userId];
-    let where = 'b.user_id = $1';
-    if (q.bikeId) {
-      params.push(q.bikeId);
-      where += ` AND r.bike_id = $${params.length}`;
-    }
-    if (q.from) {
-      params.push(q.from);
-      where += ` AND (r.date AT TIME ZONE 'UTC')::date >= $${params.length}::date`;
-    }
-    if (q.to) {
-      params.push(q.to);
-      where += ` AND (r.date AT TIME ZONE 'UTC')::date <= $${params.length}::date`;
-    }
+    const { params, where } = rideFilters(q, req.userId);
     params.push(q.limit);
     res.json(await query(`${withBike(where)} ORDER BY r.date DESC, r.id DESC LIMIT $${params.length}`, params));
+  })
+);
+
+// Rides that have a GPS track, with their points, for the map page.
+router.get(
+  '/routes',
+  ah(async (req, res) => {
+    const q = schemas.listQuery.parse(req.query);
+    const { params, where } = rideFilters(q, req.userId);
+    params.push(q.limit);
+    res.json(
+      await query(
+        `SELECT r.id, r.bike_id, b.name AS bike_name, r.date, r.title, r.distance_km, t.points
+         FROM rides r JOIN bikes b ON b.id = r.bike_id JOIN ride_tracks t ON t.ride_id = r.id
+         WHERE ${where} ORDER BY r.date DESC, r.id DESC LIMIT $${params.length}`,
+        params
+      )
+    );
   })
 );
 
@@ -46,14 +72,19 @@ router.post(
     if (!bikeId) throw new HttpError(400, 'bikeId is required');
     await assertBikeOwner(bikeId, req.userId);
 
-    const parsed = parseGpx(req.file.buffer, req.file.originalname);
-    if (req.body.preview === 'true') return res.json({ bikeId, ...parsed });
+    const { route, ...parsed } = parseActivityFile(req.file.buffer, req.file.originalname);
+    if (req.body.preview === 'true') return res.json({ bikeId, ...parsed, routePoints: route.length });
 
-    const ride = await one(
-      `INSERT INTO rides (bike_id, date, title, distance_km, duration_min, elevation_m, source)
-       VALUES ($1,$2,$3,$4,$5,$6,'GPX') RETURNING id`,
-      [bikeId, parsed.date, parsed.title, parsed.distanceKm, parsed.durationMin, parsed.elevationM]
-    );
+    const ride = await transaction(async (client) => {
+      const created = await one(
+        `INSERT INTO rides (bike_id, date, title, distance_km, duration_min, elevation_m, source)
+         VALUES ($1,$2,$3,$4,$5,$6,'GPX') RETURNING id`,
+        [bikeId, parsed.date, parsed.title, parsed.distanceKm, parsed.durationMin, parsed.elevationM],
+        client
+      );
+      await query('INSERT INTO ride_tracks (ride_id, points) VALUES ($1, $2)', [created.id, JSON.stringify(route)], client);
+      return created;
+    });
     res.status(201).json(await one(withBike('r.id = $1'), [ride.id]));
   })
 );

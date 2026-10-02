@@ -89,7 +89,7 @@ module.exports = {
         type: 'object',
         properties: {
           id: int, bikeId: int, bikeName: str, date: { type: 'string', format: 'date-time' }, title: str,
-          distanceKm: num, durationMin: int, elevationM: int, source: { type: 'string', enum: ['MANUAL', 'GPX'] }, notes: str,
+          distanceKm: num, durationMin: int, elevationM: int, source: { type: 'string', enum: ['MANUAL', 'GPX'] }, hasRoute: { type: 'boolean' }, notes: str,
         },
       },
       RideInput: {
@@ -131,8 +131,14 @@ module.exports = {
       listParams: [q('bikeId', 'integer'), q('status', 'string', { enum: ['active', 'retired'] }), q('limit', 'integer')],
     }),
     ...crud('Rides', 'rides', 'Ride', 'rides'),
+    '/rides/routes': {
+      get: op('Rides', 'Rides that have a GPS track, with simplified [lat, lon] points (for the map)', {
+        params: listParams,
+        okSchema: arr({ type: 'object', properties: { id: int, bikeId: int, bikeName: str, date: str, title: str, distanceKm: num, points: arr(arr(num)) } }),
+      }),
+    },
     '/rides/import-gpx': {
-      post: op('Rides', 'Import a GPX file as a ride (preview=true only computes values)', {
+      post: op('Rides', 'Import a GPX or TCX file (also .gz) as a ride, e.g. a Strava export. preview=true only computes values', {
         ok: 201, okSchema: ref('Ride'),
         multipart: { type: 'object', required: ['file', 'bikeId'], properties: { file: { type: 'string', format: 'binary' }, bikeId: int, preview: { type: 'boolean' } } },
       }),
