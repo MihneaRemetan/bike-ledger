@@ -37,6 +37,7 @@ export default function Rides() {
     <>
       <PageHeader
         title="Rides"
+        subtitle="Every ride adds distance to the parts mounted on that bike. Log it by hand or import a GPX file."
         actions={
           <>
             <Button startIcon={<UploadIcon />} onClick={() => setDlg({ kind: 'gpx' })} disabled={noBikes}>Import GPX</Button>

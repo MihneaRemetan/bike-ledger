@@ -15,7 +15,7 @@ import { useAuth } from '../auth/AuthContext';
 
 const WIDTH = 230;
 const NAV = [
-  { to: '/', label: 'Dashboard', icon: <DashboardIcon />, end: true },
+  { to: '/dashboard', label: 'Dashboard', icon: <DashboardIcon /> },
   { to: '/bikes', label: 'Bikes', icon: <BikeIcon /> },
   { to: '/components', label: 'Components', icon: <BuildIcon /> },
   { to: '/rides', label: 'Rides', icon: <RouteIcon /> },
@@ -39,9 +39,8 @@ export default function Layout({ children }) {
             key={n.to}
             component={NavLink}
             to={n.to}
-            end={n.end}
             onClick={() => setMobileOpen(false)}
-            selected={n.end ? pathname === '/' : pathname.startsWith(n.to)}
+            selected={pathname.startsWith(n.to)}
             sx={{ borderRadius: 2, mb: 0.5, '&.Mui-selected': { bgcolor: 'primary.main', color: '#fff', '& .MuiListItemIcon-root': { color: '#fff' }, '&:hover': { bgcolor: 'primary.dark' } } }}
           >
             <ListItemIcon sx={{ minWidth: 38 }}>{n.icon}</ListItemIcon>

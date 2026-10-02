@@ -25,7 +25,7 @@ export default function Bikes() {
 
   return (
     <>
-      <PageHeader title="Bikes" actions={<Button variant="contained" startIcon={<AddIcon />} onClick={() => setForm({ open: true, bike: null })}>Add bike</Button>} />
+      <PageHeader title="Bikes" subtitle="Your bikes. Open one to see its parts, rides and service history." actions={<Button variant="contained" startIcon={<AddIcon />} onClick={() => setForm({ open: true, bike: null })}>Add bike</Button>} />
       {error && <Alert severity="error">{error.message}</Alert>}
       {loading && !bikes && <Skeleton variant="rounded" height={180} />}
       {bikes && bikes.length === 0 && (

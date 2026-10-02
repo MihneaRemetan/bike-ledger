@@ -31,7 +31,7 @@ export default function Services() {
 
   return (
     <>
-      <PageHeader title="Services" actions={<Button variant="contained" startIcon={<AddIcon />} onClick={() => setForm({ open: true, item: null })} disabled={noBikes}>Log service</Button>} />
+      <PageHeader title="Services" subtitle="Cleanings, repairs and replacements. Logging a replacement retires the old part and can mount a new one." actions={<Button variant="contained" startIcon={<AddIcon />} onClick={() => setForm({ open: true, item: null })} disabled={noBikes}>Log service</Button>} />
       <Box sx={{ mb: 2 }}><BikeFilter bikes={bikes} value={bikeId} onChange={setBikeId} /></Box>
       {error && <Alert severity="error">{error.message}</Alert>}
       {loading && !items && <Skeleton variant="rounded" height={200} />}

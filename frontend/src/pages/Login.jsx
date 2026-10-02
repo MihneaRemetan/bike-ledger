@@ -24,7 +24,7 @@ export default function Login() {
   };
 
   return (
-    <AuthCard title="Log in">
+    <AuthCard title="Welcome back" subtitle="Log in to see your bikes and component wear.">
       <Box component="form" onSubmit={submit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {error && <Alert severity="error">{error}</Alert>}
         <TextField label="Email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />

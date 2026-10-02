@@ -27,7 +27,7 @@ export default function Register() {
   };
 
   return (
-    <AuthCard title="Create your account">
+    <AuthCard title="Start tracking your bikes" subtitle="Create a free account in under a minute.">
       <Box component="form" onSubmit={submit} noValidate sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {error && <Alert severity="error">{error}</Alert>}
         <TextField label="Name" value={form.name} onChange={set('name')} error={!!errors.name} helperText={errors.name} required />

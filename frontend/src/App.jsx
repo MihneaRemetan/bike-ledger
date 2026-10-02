@@ -4,6 +4,7 @@ import { useAuth } from './auth/AuthContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
 import Bikes from './pages/Bikes';
 import BikeDetail from './pages/BikeDetail';
@@ -25,16 +26,17 @@ function Protected() {
 
 function Public({ children }) {
   const { user, ready } = useAuth();
-  return ready && user ? <Navigate to="/" replace /> : children;
+  return ready && user ? <Navigate to="/dashboard" replace /> : children;
 }
 
 export default function App() {
   return (
     <Routes>
+      <Route path="/" element={<Public><Landing /></Public>} />
       <Route path="/login" element={<Public><Login /></Public>} />
       <Route path="/register" element={<Public><Register /></Public>} />
       <Route element={<Protected />}>
-        <Route index element={<Dashboard />} />
+        <Route path="dashboard" element={<Dashboard />} />
         <Route path="bikes" element={<Bikes />} />
         <Route path="bikes/:id" element={<BikeDetail />} />
         <Route path="components" element={<Components />} />

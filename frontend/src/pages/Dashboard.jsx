@@ -1,14 +1,15 @@
 import { useState } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { Alert, Box, Card, CardContent, Link, Skeleton, Typography } from '@mui/material';
 import { BarChart } from '@mui/x-charts/BarChart';
-import BikeIcon from '@mui/icons-material/PedalBikeOutlined';
 import { api } from '../api/client';
 import { useLoad } from '../lib/useLoad';
 import { COMPONENT_TYPES, label } from '../lib/constants';
 import { fmtKm, fmtMoney } from '../lib/format';
 import PageHeader from '../components/PageHeader';
-import EmptyState from '../components/EmptyState';
+import PhotoBanner from '../components/PhotoBanner';
+import GettingStarted from '../components/GettingStarted';
+import { useAuth } from '../auth/AuthContext';
 import WearBar from '../components/WearBar';
 import { BikeFormDialog } from '../components/forms';
 
@@ -29,6 +30,8 @@ function Kpi({ title, value, color }) {
 export default function Dashboard() {
   const { data, loading, error, reload } = useLoad(() => api('/stats/dashboard'), []);
   const [addBike, setAddBike] = useState(false);
+  const navigate = useNavigate();
+  const { user } = useAuth();
 
   if (error) return <Alert severity="error">{error.message}</Alert>;
   if (loading && !data) {
@@ -44,14 +47,20 @@ export default function Dashboard() {
   }
 
   const { totals, months, alerts } = data;
+  const steps = [
+    { title: 'Add your bike', text: 'Give it a name and a type. You can add more bikes later.', action: 'Add bike', done: totals.bikes > 0, onClick: () => setAddBike(true) },
+    { title: 'Add the parts mounted on it', text: 'Chain, tyres, brake pads and so on. Each part gets a wear limit in km, suggested for you.', action: 'Add parts', done: totals.activeComponents > 0, onClick: () => navigate('/components') },
+    { title: 'Log a ride', text: 'Enter it by hand or import a GPX file. Its distance is added to every part mounted at that time.', action: 'Log a ride', done: totals.rides > 0, onClick: () => navigate('/rides') },
+  ];
+  const onboarding = steps.some((st) => !st.done);
+  const bikeDialog = <BikeFormDialog open={addBike} onClose={() => setAddBike(false)} onSaved={() => { setAddBike(false); reload(); }} />;
+
   if (totals.bikes === 0) {
     return (
       <>
-        <PageHeader title="Dashboard" />
-        <Card>
-          <EmptyState icon={<BikeIcon />} title="No bikes yet" text="Add your first bike to start tracking rides and component wear." actionLabel="Add your first bike" onAction={() => setAddBike(true)} />
-        </Card>
-        <BikeFormDialog open={addBike} onClose={() => setAddBike(false)} onSaved={() => { setAddBike(false); reload(); }} />
+        <PhotoBanner image="/images/welcome.jpg" title={`Welcome, ${user.name.split(' ')[0]}`} subtitle="Let's set up your first bike. It only takes a minute." />
+        <GettingStarted steps={steps} />
+        {bikeDialog}
       </>
     );
   }
@@ -60,6 +69,7 @@ export default function Dashboard() {
   return (
     <>
       <PageHeader title="Dashboard" subtitle="Your riding and maintenance at a glance" />
+      {onboarding && <GettingStarted steps={steps} />}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
         <Kpi title="Total distance" value={fmtKm(totals.km)} />
         <Kpi title="Rides" value={totals.rides} />
@@ -101,6 +111,7 @@ export default function Dashboard() {
           )}
         </CardContent>
       </Card>
+      {bikeDialog}
     </>
   );
 }

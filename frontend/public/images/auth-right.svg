@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 900" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1f5c4a"/><stop offset="1" stop-color="#123a2e"/></linearGradient>
+  </defs>
+  <rect width="700" height="900" fill="url(#bg)"/>
+  <g fill="none" stroke="#ffffff" stroke-opacity="0.12" stroke-width="3">
+    <circle cx="520" cy="250" r="230"/><circle cx="520" cy="250" r="170"/><circle cx="520" cy="250" r="110"/>
+    <g stroke-width="14" stroke-dasharray="6 22" stroke-opacity="0.18"><circle cx="520" cy="250" r="260"/></g>
+  </g>
+  <path d="M-20 520 C120 420 200 640 330 560 S520 430 720 520" stroke="#e8a33d" stroke-width="10" fill="none" stroke-linecap="round"/>
+  <circle cx="330" cy="560" r="14" fill="#e8a33d"/><circle cx="330" cy="560" r="28" fill="#e8a33d" opacity="0.25"/>
+  <g transform="translate(70 640)">
+    <rect width="560" height="190" rx="16" fill="#fff"/>
+    <g font-family="Inter, system-ui, sans-serif" font-size="20" fill="#2b2b2b" font-weight="600">
+      <text x="28" y="48">Chain</text><text x="28" y="100">Rear tyre</text><text x="28" y="152">Brake pads</text>
+    </g>
+    <g><rect x="190" y="34" width="340" height="14" rx="7" fill="#ece7dd"/><rect x="190" y="34" width="290" height="14" rx="7" fill="#e07b00"/>
+       <rect x="190" y="86" width="340" height="14" rx="7" fill="#ece7dd"/><rect x="190" y="86" width="340" height="14" rx="7" fill="#c62828"/>
+       <rect x="190" y="138" width="340" height="14" rx="7" fill="#ece7dd"/><rect x="190" y="138" width="110" height="14" rx="7" fill="#2e8b57"/></g>
+  </g>
+  <g transform="translate(110 130)" stroke="#fff" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.9">
+    <circle cx="60" cy="150" r="48"/><circle cx="230" cy="150" r="48"/>
+    <path d="M60 150 L115 90 L185 90 L230 150 M115 90 L145 150 L60 150 M185 90 L145 150"/>
+    <path d="M110 68 L136 68 M180 66 L192 44 L214 44"/>
+  </g>
+</svg>

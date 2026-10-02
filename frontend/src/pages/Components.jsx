@@ -35,7 +35,7 @@ export default function Components() {
 
   return (
     <>
-      <PageHeader title="Components" actions={<Button variant="contained" startIcon={<AddIcon />} onClick={() => setForm({ open: true, item: null })} disabled={!bikes?.length}>Add component</Button>} />
+      <PageHeader title="Components" subtitle="The parts mounted on your bikes. Wear grows with every ride; replace a part when it reaches its limit." actions={<Button variant="contained" startIcon={<AddIcon />} onClick={() => setForm({ open: true, item: null })} disabled={!bikes?.length}>Add component</Button>} />
       <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
         <BikeFilter bikes={bikes} value={bikeId} onChange={setBikeId} />
         <TextField select size="small" label="Status" value={status} onChange={(e) => setStatus(e.target.value)} sx={{ minWidth: 140 }}>
