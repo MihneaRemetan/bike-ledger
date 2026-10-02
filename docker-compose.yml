@@ -1,0 +1,45 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bikeledger}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bikeledger}
+      POSTGRES_DB: ${POSTGRES_DB:-bikeledger}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bikeledger} -d ${POSTGRES_DB:-bikeledger}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build: ./backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-bikeledger}:${POSTGRES_PASSWORD:-bikeledger}@db:5432/${POSTGRES_DB:-bikeledger}
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me}
+      NODE_ENV: production
+      PORT: "3000"
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+
+volumes:
+  pgdata:
