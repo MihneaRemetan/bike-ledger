@@ -21,7 +21,7 @@ export default function GettingStarted({ steps }) {
               {s.done ? (
                 <CheckIcon color="success" sx={{ mt: 0.25 }} />
               ) : (
-                <Box sx={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0, mt: 0.25, display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 700, bgcolor: i === nextIndex ? 'primary.main' : '#ddd6c8', color: i === nextIndex ? '#fff' : 'text.secondary' }}>
+                <Box sx={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0, mt: 0.25, display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 700, bgcolor: (t) => (i === nextIndex ? t.palette.brand.main : t.palette.divider), color: i === nextIndex ? '#fff' : 'text.secondary' }}>
                   {i + 1}
                 </Box>
               )}

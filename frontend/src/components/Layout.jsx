@@ -10,8 +10,12 @@ import DashboardIcon from '@mui/icons-material/SpaceDashboardOutlined';
 import BikeIcon from '@mui/icons-material/PedalBikeOutlined';
 import BuildIcon from '@mui/icons-material/SettingsSuggestOutlined';
 import RouteIcon from '@mui/icons-material/RouteOutlined';
+import MapIcon from '@mui/icons-material/MapOutlined';
+import StatsIcon from '@mui/icons-material/InsightsOutlined';
+import DataIcon from '@mui/icons-material/ImportExportOutlined';
 import ServiceIcon from '@mui/icons-material/HandymanOutlined';
 import { useAuth } from '../auth/AuthContext';
+import ColorModeToggle from './ColorModeToggle';
 
 const WIDTH = 230;
 const NAV = [
@@ -19,7 +23,10 @@ const NAV = [
   { to: '/bikes', label: 'Bikes', icon: <BikeIcon /> },
   { to: '/components', label: 'Components', icon: <BuildIcon /> },
   { to: '/rides', label: 'Rides', icon: <RouteIcon /> },
+  { to: '/map', label: 'Map', icon: <MapIcon /> },
   { to: '/services', label: 'Services', icon: <ServiceIcon /> },
+  { to: '/statistics', label: 'Statistics', icon: <StatsIcon /> },
+  { to: '/data', label: 'Data', icon: <DataIcon /> },
 ];
 
 export default function Layout({ children }) {
@@ -41,7 +48,7 @@ export default function Layout({ children }) {
             to={n.to}
             onClick={() => setMobileOpen(false)}
             selected={pathname.startsWith(n.to)}
-            sx={{ borderRadius: 2, mb: 0.5, '&.Mui-selected': { bgcolor: 'primary.main', color: '#fff', '& .MuiListItemIcon-root': { color: '#fff' }, '&:hover': { bgcolor: 'primary.dark' } } }}
+            sx={{ borderRadius: 2, mb: 0.5, '&.Mui-selected': { bgcolor: 'brand.main', color: '#fff', '& .MuiListItemIcon-root': { color: '#fff' }, '&:hover': { bgcolor: 'brand.dark' } } }}
           >
             <ListItemIcon sx={{ minWidth: 38 }}>{n.icon}</ListItemIcon>
             <ListItemText primary={n.label} />
@@ -62,6 +69,7 @@ export default function Layout({ children }) {
           )}
           <BikeIcon sx={{ mr: 1, color: 'secondary.main' }} />
           <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 700 }}>BikeLedger</Typography>
+          <ColorModeToggle sx={{ mr: 1 }} />
           <IconButton onClick={(e) => setAnchor(e.currentTarget)} aria-label="User menu">
             <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main', color: '#000', fontSize: 14 }}>
               {user.name.slice(0, 1).toUpperCase()}
@@ -80,7 +88,7 @@ export default function Layout({ children }) {
         open={desktop || mobileOpen}
         onClose={() => setMobileOpen(false)}
         ModalProps={{ keepMounted: true }}
-        sx={{ width: desktop ? WIDTH : 0, '& .MuiDrawer-paper': { width: WIDTH, boxSizing: 'border-box', bgcolor: 'background.default', borderRight: '1px solid #e4ded3' } }}
+        sx={{ width: desktop ? WIDTH : 0, '& .MuiDrawer-paper': { width: WIDTH, boxSizing: 'border-box', bgcolor: 'background.default', borderRight: '1px solid', borderColor: 'divider' } }}
       >
         {nav}
       </Drawer>

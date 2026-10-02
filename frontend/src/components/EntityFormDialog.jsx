@@ -76,6 +76,7 @@ export default function EntityFormDialog({
               key: f.name, label: f.label, required: f.required, size: 'small', fullWidth: true,
               error: Boolean(errors[f.name]), helperText: errors[f.name] || f.helperText,
               value: values[f.name] ?? '',
+              disabled: typeof f.disabled === 'function' ? f.disabled(values) : Boolean(f.disabled),
               onChange: (e) => change(f.name, e.target.value),
             };
             if (f.type === 'checkbox') {

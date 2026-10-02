@@ -1,4 +1,5 @@
 import { Link as RouterLink } from 'react-router-dom';
+import ColorModeToggle from '../components/ColorModeToggle';
 import { AppBar, Box, Button, Card, CardContent, Container, Toolbar, Typography } from '@mui/material';
 import BikeIcon from '@mui/icons-material/PedalBikeOutlined';
 import WearIcon from '@mui/icons-material/SpeedOutlined';
@@ -7,6 +8,7 @@ import GpxIcon from '@mui/icons-material/RouteOutlined';
 import CostIcon from '@mui/icons-material/PaymentsOutlined';
 import ChartIcon from '@mui/icons-material/BarChartOutlined';
 import LockIcon from '@mui/icons-material/LockOutlined';
+import { alpha } from '@mui/material/styles';
 import WearBar from '../components/WearBar';
 
 const SAMPLE = [
@@ -31,6 +33,7 @@ export default function Landing() {
         <Toolbar sx={{ maxWidth: 1200, width: '100%', mx: 'auto' }}>
           <BikeIcon sx={{ mr: 1, color: 'secondary.main' }} />
           <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 700 }}>BikeLedger</Typography>
+          <ColorModeToggle sx={{ mr: 1 }} />
           <Button color="inherit" component={RouterLink} to="/login">Log in</Button>
           <Button variant="contained" color="secondary" component={RouterLink} to="/register" sx={{ ml: 1, color: '#000' }}>Sign up</Button>
         </Toolbar>
@@ -41,7 +44,7 @@ export default function Landing() {
           color: '#fff',
           pt: { xs: 6, md: 12 },
           pb: { xs: 8, md: 14 },
-          backgroundColor: 'primary.main',
+          backgroundColor: 'brand.main',
           backgroundImage: {
             xs: 'linear-gradient(rgba(18,58,46,0.82), rgba(18,58,46,0.82)), url(/images/hero.jpg)',
             md: 'linear-gradient(90deg, rgba(18,58,46,0.92) 0%, rgba(18,58,46,0.7) 45%, rgba(18,58,46,0.25) 100%), url(/images/hero.jpg)',
@@ -87,7 +90,7 @@ export default function Landing() {
           {FEATURES.map((f) => (
             <Card key={f.title}>
               <CardContent sx={{ p: 3 }}>
-                <Box sx={{ width: 44, height: 44, borderRadius: 2, bgcolor: 'rgba(31,92,74,0.1)', color: 'primary.main', display: 'grid', placeItems: 'center', mb: 2 }}>{f.icon}</Box>
+                <Box sx={{ width: 44, height: 44, borderRadius: 2, bgcolor: (t) => alpha(t.palette.primary.main, 0.14), color: 'primary.main', display: 'grid', placeItems: 'center', mb: 2 }}>{f.icon}</Box>
                 <Typography variant="h6" sx={{ mb: 0.5 }}>{f.title}</Typography>
                 <Typography variant="body2" color="text.secondary">{f.text}</Typography>
               </CardContent>
@@ -102,7 +105,7 @@ export default function Landing() {
         <Button size="large" variant="contained" component={RouterLink} to="/register">Create your account</Button>
       </Container>
 
-      <Box component="footer" sx={{ py: 3, textAlign: 'center', borderTop: '1px solid #e4ded3', color: 'text.secondary' }}>
+      <Box component="footer" sx={{ py: 3, textAlign: 'center', borderTop: '1px solid', borderColor: 'divider', color: 'text.secondary' }}>
         <Typography variant="body2">© {new Date().getFullYear()} BikeLedger</Typography>
       </Box>
     </Box>

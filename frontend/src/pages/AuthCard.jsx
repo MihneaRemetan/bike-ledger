@@ -1,4 +1,5 @@
 import { Link as RouterLink } from 'react-router-dom';
+import ColorModeToggle from '../components/ColorModeToggle';
 import { AppBar, Box, Toolbar, Typography } from '@mui/material';
 import BikeIcon from '@mui/icons-material/PedalBikeOutlined';
 
@@ -12,13 +13,15 @@ const panel = (name) => ({
 
 export default function AuthCard({ title, subtitle, children }) {
   return (
-    <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: '#fff' }}>
+    <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.paper' }}>
       <AppBar position="static" color="primary">
         <Toolbar sx={{ maxWidth: 1200, width: '100%', mx: 'auto' }}>
           <Box component={RouterLink} to="/" sx={{ display: 'flex', alignItems: 'center', color: 'inherit', textDecoration: 'none' }}>
             <BikeIcon sx={{ mr: 1, color: 'secondary.main' }} />
             <Typography variant="h6" sx={{ fontWeight: 700 }}>BikeLedger</Typography>
           </Box>
+          <Box sx={{ flexGrow: 1 }} />
+          <ColorModeToggle />
         </Toolbar>
       </AppBar>
 

@@ -59,3 +59,27 @@ export async function api(path, { method = 'GET', body, form, params } = {}) {
   }
   return data;
 }
+
+// Downloads a file the API protects with the login token (a plain link cannot send the Authorization header)
+export async function download(path, fallbackName) {
+  let res;
+  try {
+    res = await fetch(`/api${path}`, { headers: session.token ? { Authorization: `Bearer ${session.token}` } : {} });
+  } catch {
+    throw new ApiError(0, 'Cannot reach the server');
+  }
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new ApiError(res.status, data?.error || `Download failed (${res.status})`);
+  }
+  const name = /filename="?([^";]+)"?/.exec(res.headers.get('Content-Disposition') || '')?.[1] || fallbackName;
+  const url = URL.createObjectURL(await res.blob());
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = name;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  return name;
+}

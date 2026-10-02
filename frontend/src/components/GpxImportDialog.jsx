@@ -65,17 +65,20 @@ export default function GpxImportDialog({ open, bikes, defaultBikeId, onClose, o
 
   return (
     <Dialog open={open} onClose={busy ? undefined : onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Import GPX</DialogTitle>
+      <DialogTitle>Import a ride from a file</DialogTitle>
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '8px !important' }}>
         {error && <Alert severity="error">{error}</Alert>}
+        <Typography variant="body2" color="text.secondary">
+          From Strava: open the activity on strava.com, click the three dots menu, then <b>Export GPX</b>. Garmin Connect and most bike computers export GPX or TCX too. The route is also saved for the Map page.
+        </Typography>
         <TextField select size="small" label="Bike" required value={bikeId}
           onChange={(e) => { setBikeId(e.target.value); runPreview(file, e.target.value); }}>
           {(bikes || []).map((b) => <MenuItem key={b.id} value={String(b.id)}>{b.name}</MenuItem>)}
         </TextField>
-        <input ref={input} type="file" accept=".gpx,application/gpx+xml" hidden
+        <input ref={input} type="file" accept=".gpx,.tcx,.gz,.xml,application/gpx+xml" hidden
           onChange={(e) => { const f = e.target.files[0]; setFile(f || null); runPreview(f, bikeId); e.target.value = ''; }} />
         <Button variant="outlined" startIcon={<UploadIcon />} onClick={() => input.current.click()}>
-          {file ? file.name : 'Choose .gpx file'}
+          {file ? file.name : 'Choose a GPX or TCX file'}
         </Button>
         {file && !bikeId && <Typography variant="body2" color="text.secondary">Pick a bike to see the preview.</Typography>}
         {rows && (

@@ -1,16 +1,14 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { CssBaseline, ThemeProvider } from '@mui/material';
-import theme from './theme';
+import { ColorModeProvider } from './ColorMode';
 import { AuthProvider } from './auth/AuthContext';
 import { NotifyProvider } from './components/Notify';
 import App from './App';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
+    <ColorModeProvider>
       <BrowserRouter>
         <NotifyProvider>
           <AuthProvider>
@@ -18,6 +16,6 @@ createRoot(document.getElementById('root')).render(
           </AuthProvider>
         </NotifyProvider>
       </BrowserRouter>
-    </ThemeProvider>
+    </ColorModeProvider>
   </StrictMode>
 );

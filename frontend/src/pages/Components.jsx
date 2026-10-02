@@ -8,6 +8,8 @@ import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import BuildIcon from '@mui/icons-material/SettingsSuggestOutlined';
+import MoveIcon from '@mui/icons-material/DriveFileMoveOutlined';
+import HistoryIcon from '@mui/icons-material/HistoryOutlined';
 import { api } from '../api/client';
 import { useLoad } from '../lib/useLoad';
 import { COMPONENT_TYPES, label } from '../lib/constants';
@@ -18,7 +20,9 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import BikeFilter from '../components/BikeFilter';
 import WearBar from '../components/WearBar';
 import { useNotify } from '../components/Notify';
-import { ComponentFormDialog } from '../components/forms';
+import { ComponentFormDialog, MoveComponentDialog } from '../components/forms';
+import ComponentHistoryDialog from '../components/ComponentHistoryDialog';
+import BuyMenu from '../components/BuyMenu';
 
 export default function Components() {
   const notify = useNotify();
@@ -31,7 +35,10 @@ export default function Components() {
   );
   const [form, setForm] = useState({ open: false, item: null });
   const [del, setDel] = useState(null);
+  const [move, setMove] = useState(null);
+  const [history, setHistory] = useState(null);
   const closeForm = () => setForm({ open: false, item: null });
+  const bikeTypeOf = (id) => (bikes || []).find((b) => b.id === id)?.type;
 
   return (
     <>
@@ -65,6 +72,11 @@ export default function Components() {
                       <TableCell>{fmtDate(c.installedAt)}</TableCell>
                       <TableCell><WearBar component={c} /></TableCell>
                       <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                        {!c.retiredAt && <BuyMenu component={c} bikeType={bikeTypeOf(c.bikeId)} />}
+                        <IconButton size="small" aria-label="Part history" onClick={() => setHistory(c)}><HistoryIcon fontSize="small" /></IconButton>
+                        {!c.retiredAt && bikes && bikes.length > 1 && (
+                          <IconButton size="small" aria-label="Move to another bike" onClick={() => setMove(c)}><MoveIcon fontSize="small" /></IconButton>
+                        )}
                         <IconButton size="small" aria-label="Edit" onClick={() => setForm({ open: true, item: c })}><EditIcon fontSize="small" /></IconButton>
                         <IconButton size="small" aria-label="Delete" onClick={() => setDel(c)}><DeleteIcon fontSize="small" /></IconButton>
                       </TableCell>
@@ -78,6 +90,8 @@ export default function Components() {
       )}
 
       <ComponentFormDialog open={form.open} component={form.item} bikes={bikes} defaultBikeId={bikeId} onClose={closeForm} onSaved={() => { closeForm(); reload(); }} />
+      <MoveComponentDialog open={Boolean(move)} component={move} bikes={bikes} onClose={() => setMove(null)} onSaved={() => { setMove(null); reload(); }} />
+      <ComponentHistoryDialog open={Boolean(history)} component={history} onClose={() => setHistory(null)} />
       <ConfirmDialog
         open={Boolean(del)}
         title="Delete component?"

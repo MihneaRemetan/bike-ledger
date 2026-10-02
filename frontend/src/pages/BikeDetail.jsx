@@ -9,6 +9,8 @@ import EditIcon from '@mui/icons-material/EditOutlined';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import SwapIcon from '@mui/icons-material/SwapHorizOutlined';
 import UploadIcon from '@mui/icons-material/UploadFileOutlined';
+import MoveIcon from '@mui/icons-material/DriveFileMoveOutlined';
+import HistoryIcon from '@mui/icons-material/HistoryOutlined';
 import ExpandIcon from '@mui/icons-material/ExpandMore';
 import { api } from '../api/client';
 import { useLoad } from '../lib/useLoad';
@@ -19,8 +21,11 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import WearBar from '../components/WearBar';
 import StatusChip from '../components/StatusChip';
 import GpxImportDialog from '../components/GpxImportDialog';
+import MaintenanceSection from '../components/MaintenanceSection';
+import ComponentHistoryDialog from '../components/ComponentHistoryDialog';
+import BuyMenu from '../components/BuyMenu';
 import { useNotify } from '../components/Notify';
-import { BikeFormDialog, ComponentFormDialog, RideFormDialog, ServiceFormDialog } from '../components/forms';
+import { BikeFormDialog, ComponentFormDialog, MoveComponentDialog, RideFormDialog, ServiceFormDialog } from '../components/forms';
 
 const partName = (c) => [label(COMPONENT_TYPES, c.type), [c.brand, c.model].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
 
@@ -116,6 +121,11 @@ export default function BikeDetail() {
                   <Tooltip title="Replace this part">
                     <Button size="small" startIcon={<SwapIcon />} onClick={() => setDlg({ kind: 'service', preset: { bikeId: bike.id, componentId: c.id, type: 'REPLACE' } })}>Replace</Button>
                   </Tooltip>
+                  <BuyMenu component={c} bikeType={bike.type} />
+                  <IconButton size="small" aria-label="Part history" onClick={() => setDlg({ kind: 'history', item: c })}><HistoryIcon fontSize="small" /></IconButton>
+                  {bikes && bikes.length > 1 && (
+                    <IconButton size="small" aria-label="Move to another bike" onClick={() => setDlg({ kind: 'move', item: c })}><MoveIcon fontSize="small" /></IconButton>
+                  )}
                   {rowActions('component', c)}
                 </Box>
               </Box>
@@ -148,6 +158,8 @@ export default function BikeDetail() {
           </Box>
         )}
       </Section>
+
+      <MaintenanceSection bikeId={bike.id} parts={active} onChanged={reload} />
 
       <Section
         title="Recent rides"
@@ -206,6 +218,8 @@ export default function BikeDetail() {
       <ComponentFormDialog open={dlg?.kind === 'component'} component={dlg?.item} bikes={bikes} defaultBikeId={bike.id} onClose={close} onSaved={saved} />
       <RideFormDialog open={dlg?.kind === 'ride'} ride={dlg?.item} bikes={bikes} defaultBikeId={bike.id} onClose={close} onSaved={saved} />
       <ServiceFormDialog open={dlg?.kind === 'service'} service={dlg?.item} preset={dlg?.preset} bikes={bikes} onClose={close} onSaved={saved} />
+      <MoveComponentDialog open={dlg?.kind === 'move'} component={dlg?.item} bikes={bikes} onClose={close} onSaved={saved} />
+      <ComponentHistoryDialog open={dlg?.kind === 'history'} component={dlg?.item} onClose={close} />
       <GpxImportDialog open={dlg?.kind === 'gpx'} bikes={bikes} defaultBikeId={bike.id} onClose={close} onSaved={saved} />
       <ConfirmDialog
         open={Boolean(del)}

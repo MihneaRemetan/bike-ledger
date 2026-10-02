@@ -10,6 +10,9 @@ import Bikes from './pages/Bikes';
 import BikeDetail from './pages/BikeDetail';
 import Components from './pages/Components';
 import Rides from './pages/Rides';
+import MapPage from './pages/MapPage';
+import Statistics from './pages/Statistics';
+import DataPage from './pages/DataPage';
 import Services from './pages/Services';
 
 function Protected() {
@@ -41,6 +44,9 @@ export default function App() {
         <Route path="bikes/:id" element={<BikeDetail />} />
         <Route path="components" element={<Components />} />
         <Route path="rides" element={<Rides />} />
+        <Route path="map" element={<MapPage />} />
+        <Route path="statistics" element={<Statistics />} />
+        <Route path="data" element={<DataPage />} />
         <Route path="services" element={<Services />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

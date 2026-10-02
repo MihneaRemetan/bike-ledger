@@ -57,7 +57,7 @@ export function ComponentFormDialog({ open, component, bikes, defaultBikeId, onC
   );
 
   const fields = [
-    { name: 'bikeId', label: 'Bike', type: 'select', required: true, options: bikeOptions(bikes) },
+    { name: 'bikeId', label: 'Bike', type: 'select', required: true, options: bikeOptions(bikes), disabled: Boolean(component), helperText: component ? 'To use it on another bike, use the Move button' : undefined },
     { name: 'type', label: 'Type', type: 'select', required: true, options: toOptions(COMPONENT_TYPES) },
     { name: 'brand', label: 'Brand', type: 'text' },
     { name: 'model', label: 'Model', type: 'text' },
@@ -202,6 +202,66 @@ export function ServiceFormDialog({ open, service, bikes, preset, onClose, onSav
         } else {
           notify.success(service ? 'Service updated' : 'Service logged');
         }
+        onSaved(saved);
+      }}
+    />
+  );
+}
+
+// Moves a part to another bike as of a date. Its km on the old bike are kept.
+export function MoveComponentDialog({ open, component, bikes, onClose, onSaved }) {
+  const notify = useNotify();
+  const others = (bikes || []).filter((b) => !component || b.id !== component.bikeId);
+  const initial = useMemo(() => ({ bikeId: '', date: todayStr() }), [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  const fields = [
+    { name: 'bikeId', label: 'Move to', type: 'select', required: true, options: bikeOptions(others) },
+    { name: 'date', label: 'Moved on', type: 'date', required: true, helperText: 'Rides from this day count for the new bike' },
+  ];
+  return (
+    <EntityFormDialog
+      open={open}
+      title="Move to another bike"
+      submitLabel="Move"
+      fields={fields}
+      initialValues={initial}
+      onClose={onClose}
+      onSubmit={async (v) => {
+        const saved = await api(`/components/${component.id}/move`, { method: 'POST', body: v });
+        notify.success(`Moved to ${saved.bikeName}`);
+        onSaved(saved);
+      }}
+    />
+  );
+}
+
+// A maintenance rule: do something every N km and/or every N days
+export function RuleFormDialog({ open, rule, bikeId, parts, onClose, onSaved }) {
+  const notify = useNotify();
+  const initial = useMemo(
+    () => (rule ? { ...rule, componentId: str(rule.componentId) } : { serviceType: 'CLEAN', startDate: todayStr() }),
+    [rule]
+  );
+  const partOptions = (parts || []).map((c) => ({ value: String(c.id), label: [label(COMPONENT_TYPES, c.type), [c.brand, c.model].filter(Boolean).join(' ')].filter(Boolean).join(' · ') }));
+  const fields = [
+    { name: 'title', label: 'What needs doing', type: 'text', required: true, helperText: 'For example: Clean and lube the chain' },
+    { name: 'serviceType', label: 'Counts as', type: 'select', required: true, options: toOptions(SERVICE_TYPES), helperText: 'Logging a service of this type restarts the counters' },
+    { name: 'componentId', label: 'Only for this part', type: 'select', options: partOptions, helperText: 'Optional. Leave empty for a rule about the whole bike' },
+    { name: 'everyKm', label: 'Every', type: 'number', endAdornment: 'km', helperText: 'Set a distance, a number of days, or both' },
+    { name: 'everyDays', label: 'Or every', type: 'number', endAdornment: 'days' },
+    { name: 'startDate', label: 'Counting from', type: 'date', helperText: 'Until a matching service is logged' },
+  ];
+  return (
+    <EntityFormDialog
+      open={open}
+      title={rule ? 'Edit rule' : 'Add maintenance rule'}
+      fields={fields}
+      initialValues={initial}
+      onClose={onClose}
+      onSubmit={async (v) => {
+        const saved = rule
+          ? await api(`/maintenance/rules/${rule.id}`, { method: 'PUT', body: v })
+          : await api('/maintenance/rules', { method: 'POST', body: { ...v, bikeId } });
+        notify.success(rule ? 'Rule updated' : 'Rule added');
         onSaved(saved);
       }}
     />

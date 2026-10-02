@@ -9,6 +9,7 @@ import EditIcon from '@mui/icons-material/EditOutlined';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import UploadIcon from '@mui/icons-material/UploadFileOutlined';
 import RouteIcon from '@mui/icons-material/RouteOutlined';
+import MapIcon from '@mui/icons-material/MapOutlined';
 import { api } from '../api/client';
 import { useLoad } from '../lib/useLoad';
 import { fmtDate, fmtDuration, fmtElev, fmtKm } from '../lib/format';
@@ -77,6 +78,9 @@ export default function Rides() {
                       <TableCell align="right">{fmtElev(r.elevationM)}</TableCell>
                       <TableCell><Chip size="small" variant="outlined" label={r.source === 'GPX' ? 'GPX' : 'Manual'} /></TableCell>
                       <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                        {r.hasRoute && (
+                          <IconButton size="small" aria-label="View route on map" title="View route on map" component={RouterLink} to={`/map?ride=${r.id}`}><MapIcon fontSize="small" /></IconButton>
+                        )}
                         <IconButton size="small" aria-label="Edit" onClick={() => setDlg({ kind: 'ride', item: r })}><EditIcon fontSize="small" /></IconButton>
                         <IconButton size="small" aria-label="Delete" onClick={() => setDel(r)}><DeleteIcon fontSize="small" /></IconButton>
                       </TableCell>

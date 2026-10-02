@@ -21,3 +21,13 @@ export const toLocalInput = (iso) => {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 };
 export const lowerFirst = (s) => s.charAt(0).toLowerCase() + s.slice(1);
+
+// "in 3 days", "in about 7 weeks", "in about 4 months", "in over a year": a rough, friendly distance in time
+export function fmtIn(days) {
+  if (days <= 0) return 'now';
+  if (days === 1) return 'tomorrow';
+  if (days < 14) return `in ${days} days`;
+  if (days < 60) return `in about ${Math.round(days / 7)} weeks`;
+  if (days < 365) return `in about ${Math.round(days / 30)} months`;
+  return days < 730 ? 'in about a year' : `in about ${Math.round(days / 365)} years`;
+}

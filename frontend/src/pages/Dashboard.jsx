@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { Alert, Box, Card, CardContent, Link, Skeleton, Typography } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import { BarChart } from '@mui/x-charts/BarChart';
 import { api } from '../api/client';
 import { useLoad } from '../lib/useLoad';
@@ -11,6 +12,8 @@ import PhotoBanner from '../components/PhotoBanner';
 import GettingStarted from '../components/GettingStarted';
 import { useAuth } from '../auth/AuthContext';
 import WearBar from '../components/WearBar';
+import RuleBar from '../components/RuleBar';
+import BuyMenu from '../components/BuyMenu';
 import { BikeFormDialog } from '../components/forms';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -31,6 +34,7 @@ export default function Dashboard() {
   const { data, loading, error, reload } = useLoad(() => api('/stats/dashboard'), []);
   const [addBike, setAddBike] = useState(false);
   const navigate = useNavigate();
+  const theme = useTheme();
   const { user } = useAuth();
 
   if (error) return <Alert severity="error">{error.message}</Alert>;
@@ -46,7 +50,7 @@ export default function Dashboard() {
     );
   }
 
-  const { totals, months, alerts } = data;
+  const { totals, months, alerts, maintenance = [] } = data;
   const steps = [
     { title: 'Add your bike', text: 'Give it a name and a type. You can add more bikes later.', action: 'Add bike', done: totals.bikes > 0, onClick: () => setAddBike(true) },
     { title: 'Add the parts mounted on it', text: 'Chain, tyres, brake pads and so on. Each part gets a wear limit in km, suggested for you.', action: 'Add parts', done: totals.activeComponents > 0, onClick: () => navigate('/components') },
@@ -83,13 +87,32 @@ export default function Dashboard() {
           <BarChart
             dataset={dataset}
             xAxis={[{ scaleType: 'band', dataKey: 'label' }]}
-            series={[{ dataKey: 'km', label: 'km', color: '#1f5c4a', valueFormatter: (v) => `${v} km` }]}
+            series={[{ dataKey: 'km', label: 'km', color: theme.palette.primary.main, valueFormatter: (v) => `${v} km` }]}
             height={280}
             margin={{ left: 10, right: 10, top: 20, bottom: 30 }}
             slotProps={{ legend: { hidden: true } }}
           />
         </CardContent>
       </Card>
+
+      {maintenance.length > 0 && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="h6" sx={{ mb: 2 }}>Maintenance due</Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {maintenance.map((r) => (
+                <Box key={r.id} sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+                  <Box>
+                    <Typography fontWeight={600}>{r.title}</Typography>
+                    <Link component={RouterLink} to={`/bikes/${r.bikeId}`} variant="body2">{r.bikeName}</Link>
+                  </Box>
+                  <Box sx={{ flex: '1 1 240px', maxWidth: 380 }}><RuleBar rule={r} /></Box>
+                </Box>
+              ))}
+            </Box>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardContent>
@@ -105,6 +128,7 @@ export default function Dashboard() {
                     <Link component={RouterLink} to={`/bikes/${c.bikeId}`} variant="body2">{c.bikeName}</Link>
                   </Box>
                   <Box sx={{ flex: '1 1 240px', maxWidth: 380 }}><WearBar component={c} /></Box>
+                  <BuyMenu component={c} />
                 </Box>
               ))}
             </Box>
