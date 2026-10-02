@@ -4,6 +4,7 @@ const { ah } = require('../lib/http');
 const schemas = require('../lib/schemas');
 const { WEAR_SELECT, decorate } = require('../lib/wear');
 const { listRules } = require('../lib/maintenance');
+const { withComponentForecasts } = require('../lib/forecast');
 
 const router = express.Router();
 const round = (n, d = 1) => Math.round(n * 10 ** d) / 10 ** d;
@@ -44,10 +45,12 @@ router.get(
       ),
     ]);
 
-    const alerts = active
-      .map(decorate)
-      .filter((c) => c.status === 'WARN' || c.status === 'REPLACE')
-      .sort((a, b) => b.wearPct - a.wearPct);
+    const alerts = await withComponentForecasts(
+      active
+        .map(decorate)
+        .filter((c) => c.status === 'WARN' || c.status === 'REPLACE')
+        .sort((a, b) => b.wearPct - a.wearPct)
+    );
 
     const maintenance = (await listRules('b.user_id = $1', [uid])).filter((r) => r.status === 'DUE' || r.status === 'OVERDUE');
 

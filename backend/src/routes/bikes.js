@@ -4,6 +4,7 @@ const { ah, HttpError, parseId } = require('../lib/http');
 const { assertBikeOwner } = require('../lib/ownership');
 const schemas = require('../lib/schemas');
 const { WEAR_SELECT, decorate } = require('../lib/wear');
+const { withComponentForecasts } = require('../lib/forecast');
 
 const router = express.Router();
 const FIELDS = ['name', 'type', 'brand', 'model', 'year', 'notes'];
@@ -61,7 +62,7 @@ router.get(
       totalKm: round(bike.totalKm),
       maintenanceCost: round(bike.maintenanceCost, 2),
       costPerKm: bike.totalKm > 0 ? round(bike.maintenanceCost / bike.totalKm, 3) : 0,
-      components: components.map(decorate),
+      components: await withComponentForecasts(components.map(decorate)),
       recentRides,
       recentServices,
     });

@@ -75,6 +75,15 @@ module.exports = {
           brand: str, model: str, installedAt: { type: 'string', format: 'date' }, retiredAt: { type: 'string', format: 'date', nullable: true },
           initialKm: num, maxKm: num, price: num, wearKm: num, wearPct: num, remainingKm: num,
           status: { type: 'string', enum: ['OK', 'WARN', 'REPLACE', 'RETIRED'] },
+          forecast: {
+            type: 'object', nullable: true,
+            description: 'When the part reaches its limit at the bike\'s pace of the last 90 days. null for retired parts.',
+            properties: {
+              status: { type: 'string', enum: ['DATE', 'NOW', 'NO_RECENT_RIDES', 'FAR'] },
+              date: { type: 'string', format: 'date', nullable: true }, daysLeft: { type: 'integer', nullable: true },
+              kmPerDay: num, windowDays: int, remainingKm: num,
+            },
+          },
         },
       },
       ComponentInput: {
@@ -115,6 +124,7 @@ module.exports = {
           lastDoneAt: { type: 'string', format: 'date', description: 'Counters run from here: the latest matching service or the start date' }, lastServiceAt: { type: 'string', format: 'date', nullable: true }, kmSince: num, kmRemaining: { type: 'number', nullable: true },
           daysSince: int, daysRemaining: { type: 'integer', nullable: true }, nextDueDate: { type: 'string', format: 'date', nullable: true },
           pct: num, status: { type: 'string', enum: ['OK', 'DUE', 'OVERDUE', 'PAUSED'] },
+          forecast: { type: 'object', nullable: true, description: 'Expected due date: the earlier of the day limit and the distance limit at the recent pace', properties: { date: { type: 'string', format: 'date' }, basis: { type: 'string', enum: ['DAYS', 'KM'] } } },
         },
       },
       MaintenanceRuleInput: {

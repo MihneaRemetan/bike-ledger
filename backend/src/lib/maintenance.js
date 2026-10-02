@@ -1,5 +1,6 @@
 const { query } = require('../db/pool');
 const { HttpError } = require('./http');
+const { withRuleForecasts } = require('./forecast');
 
 const round = (n, d = 1) => Math.round(n * 10 ** d) / 10 ** d;
 const addDays = (isoDate, days) => {
@@ -53,7 +54,8 @@ function decorateRule(r) {
 
 async function listRules(where, params, client) {
   const rows = await query(RULE_SELECT.replace('__WHERE__', where), params, client);
-  return rows.map(decorateRule).sort((a, b) => ORDER[a.status] - ORDER[b.status] || b.pct - a.pct || a.id - b.id);
+  const rules = await withRuleForecasts(rows.map(decorateRule), client);
+  return rules.sort((a, b) => ORDER[a.status] - ORDER[b.status] || b.pct - a.pct || a.id - b.id);
 }
 
 async function findRule(id, userId, client) {

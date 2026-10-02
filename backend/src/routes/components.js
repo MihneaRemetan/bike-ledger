@@ -5,6 +5,7 @@ const { assertBikeOwner, findOwned } = require('../lib/ownership');
 const schemas = require('../lib/schemas');
 const { DEFAULT_MAX_KM, WEAR_SELECT, decorate } = require('../lib/wear');
 const { todayUtc, insertComponent, moveComponent, mountsOf } = require('../lib/components');
+const { withComponentForecasts } = require('../lib/forecast');
 
 const router = express.Router();
 // bikeId is not here: a part changes bike through moveComponent, which keeps its mount history
@@ -15,7 +16,7 @@ async function loadDecorated(id) {
     `SELECT ${WEAR_SELECT}, b.name AS bike_name FROM components c JOIN bikes b ON b.id = c.bike_id WHERE c.id = $1`,
     [id]
   );
-  return decorate(row);
+  return (await withComponentForecasts([decorate(row)]))[0];
 }
 
 router.get('/defaults', (req, res) => res.json(DEFAULT_MAX_KM));
@@ -41,7 +42,7 @@ router.get(
        LIMIT $${params.length}`,
       params
     );
-    res.json(rows.map(decorate));
+    res.json(await withComponentForecasts(rows.map(decorate)));
   })
 );
 
