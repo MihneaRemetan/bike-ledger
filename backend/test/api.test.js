@@ -382,6 +382,65 @@ ${Array.from({ length: 200 }, (_, i) => `  <trkpt lat="${(45.6 + i * 0.0004).toF
   });
 });
 
+describe('bike shops (OpenStreetMap)', () => {
+  const overpass = (elements) => async () => ({ ok: true, status: 200, json: async () => ({ elements }) });
+  const SAMPLE = [
+    { type: 'node', id: 2, lat: 45.76, lon: 21.23, tags: { name: 'Far Shop', 'addr:street': 'Strada Mare', 'addr:housenumber': '5', 'addr:city': 'Timisoara', 'service:bicycle:repair': 'yes', opening_hours: 'Mo-Fr 09:00-18:00', website: 'https://far.example' } },
+    { type: 'node', id: 1, lat: 45.7545, lon: 21.2262, tags: { name: 'Near Shop', brand: 'Canyon' } },
+    { type: 'way', id: 3, center: { lat: 45.7560, lon: 21.2300 }, tags: { shop: 'bicycle' } },
+    { type: 'node', id: 4, lat: 46.5, lon: 22.5, tags: { name: 'Out of range' } },
+  ];
+  const { _cache, _config } = require('../src/lib/overpass');
+  const fast = { ...{ retryDelayMs: _config.retryDelayMs, hedgeDelayMs: _config.hedgeDelayMs } };
+  before(() => { _config.retryDelayMs = 0; _config.hedgeDelayMs = 60000; });
+  after(() => Object.assign(_config, fast));
+
+  test('requires auth and valid coordinates', async () => {
+    assert.equal((await request(app).get('/api/places/bike-shops?lat=45&lon=21')).status, 401);
+    assert.equal((await A.get('/api/places/bike-shops?lat=999&lon=21')).status, 400);
+    assert.equal((await A.get('/api/places/bike-shops')).status, 400);
+    assert.equal((await A.get('/api/places/bike-shops?lat=45&lon=21&radiusKm=500')).status, 400);
+  });
+  test('normalizes, sorts by distance and drops shops out of range', async (t) => {
+    _cache.clear();
+    t.mock.method(globalThis, 'fetch', overpass(SAMPLE));
+    const r = await A.get('/api/places/bike-shops?lat=45.7537&lon=21.2257&radiusKm=10');
+    assert.equal(r.status, 200);
+    assert.deepEqual(r.body.map((s) => s.name), ['Near Shop', 'Bicycle shop', 'Far Shop']);
+    assert.equal(r.body[0].brand, 'Canyon');
+    assert.equal(r.body[0].repair, false);
+    const far = r.body[2];
+    assert.equal(far.repair, true);
+    assert.equal(far.address, 'Strada Mare 5, Timisoara');
+    assert.equal(far.openingHours, 'Mo-Fr 09:00-18:00');
+    assert.ok(far.distanceKm > r.body[0].distanceKm);
+    assert.ok(r.body.every((s) => s.distanceKm <= 10));
+  });
+  test('caches results and falls back to mirrors when the first server fails', async (t) => {
+    _cache.clear();
+    let calls = 0;
+    t.mock.method(globalThis, 'fetch', async () => {
+      calls += 1;
+      if (calls <= 2) return { ok: false, status: 504, json: async () => ({}) };
+      return { ok: true, status: 200, json: async () => ({ elements: SAMPLE }) };
+    });
+    const url = '/api/places/bike-shops?lat=45.7537&lon=21.2257';
+    assert.equal((await A.get(url)).status, 200);
+    assert.equal(calls, 3);
+    assert.equal((await A.get(url)).status, 200);
+    assert.equal(calls, 3); // second request served from cache
+  });
+  test('502 when every server fails', async (t) => {
+    _cache.clear();
+    _config.hedgeDelayMs = 0;
+    t.mock.method(globalThis, 'fetch', async () => { throw new Error('network down'); });
+    const r = await A.get('/api/places/bike-shops?lat=10&lon=10');
+    assert.equal(r.status, 502);
+    assert.match(r.body.error, /busy/);
+    _config.hedgeDelayMs = 60000;
+  });
+});
+
 describe('dashboard', () => {
   test('12 months, totals and alerts', async () => {
     const bike = await mkBike();

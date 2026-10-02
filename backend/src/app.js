@@ -18,6 +18,7 @@ function createApp() {
   app.use('/api/rides', requireAuth, require('./routes/rides'));
   app.use('/api/services', requireAuth, require('./routes/services'));
   app.use('/api/stats', requireAuth, require('./routes/stats'));
+  app.use('/api/places', requireAuth, require('./routes/places'));
 
   app.use(notFound);
   app.use(errorHandler);

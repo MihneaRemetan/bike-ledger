@@ -120,9 +120,6 @@ router.put(
     if (componentId && (d.componentId !== undefined || bikeId !== existing.bikeId)) {
       await assertComponentOnBike(componentId, bikeId, req.userId);
     }
-    if (bikeId !== existing.bikeId && d.componentId === undefined && existing.componentId) {
-      throw new HttpError(400, 'Component is not on this bike');
-    }
 
     const { sets, values } = buildUpdate(d, FIELDS);
     if (sets.length) {

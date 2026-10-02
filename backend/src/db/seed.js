@@ -4,7 +4,7 @@ const { migrate } = require('./migrate');
 const { haversineKm } = require('../lib/gpx');
 const DEMO_ROUTES = require('./demo-routes.json'); // real streets around Timisoara, see scripts/generate-demo-routes.js
 
-const DEMO_EMAIL = 'demo@bikeledger.app';
+const DEMO_EMAIL = process.env.SEED_EMAIL || 'demo@bikeledger.app'; // overridable so tests can seed a throwaway account
 const DEMO_PASSWORD = 'demo1234';
 const DAYS = 300;
 

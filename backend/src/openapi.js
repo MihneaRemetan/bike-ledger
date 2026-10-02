@@ -48,7 +48,7 @@ module.exports = {
       'Bike maintenance ledger. Component wear is computed on every read from the rides logged on the same bike while the part was mounted. Use **Authorize** with the token returned by login/register.',
   },
   servers: [{ url: '/api' }],
-  tags: ['Auth', 'Bikes', 'Components', 'Rides', 'Services', 'Stats', 'System'].map((name) => ({ name })),
+  tags: ['Auth', 'Bikes', 'Components', 'Rides', 'Services', 'Stats', 'Places', 'System'].map((name) => ({ name })),
   components: {
     securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' } },
     schemas: {
@@ -144,6 +144,12 @@ module.exports = {
       }),
     },
     ...crud('Services', 'services', 'Service', 'services'),
+    '/places/bike-shops': {
+      get: op('Places', 'Bicycle shops near a point (OpenStreetMap data), nearest first', {
+        params: [{ name: 'lat', in: 'query', required: true, schema: num }, { name: 'lon', in: 'query', required: true, schema: num }, q('radiusKm', 'number', { minimum: 1, maximum: 30, default: 10 })],
+        okSchema: arr({ type: 'object', properties: { id: str, name: str, lat: num, lon: num, address: str, phone: str, website: str, openingHours: str, brand: str, repair: { type: 'boolean' }, distanceKm: num } }),
+      }),
+    },
     '/stats/dashboard': { get: op('Stats', 'Dashboard totals, 12-month series and wear alerts') },
   },
 };
