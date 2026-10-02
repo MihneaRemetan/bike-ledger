@@ -48,7 +48,7 @@ module.exports = {
       'Bike maintenance ledger. Component wear is computed on every read from the rides logged on the same bike while the part was mounted. Use **Authorize** with the token returned by login/register.',
   },
   servers: [{ url: '/api' }],
-  tags: ['Auth', 'Bikes', 'Components', 'Rides', 'Services', 'Stats', 'Places', 'System'].map((name) => ({ name })),
+  tags: ['Auth', 'Bikes', 'Components', 'Rides', 'Services', 'Maintenance', 'Data', 'Stats', 'Places', 'System'].map((name) => ({ name })),
   components: {
     securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' } },
     schemas: {
@@ -105,6 +105,23 @@ module.exports = {
           cost: num, notes: str, retiredComponentId: int, newComponent: ref('Component'),
         },
       },
+      Mount: { type: 'object', properties: { id: int, bikeId: int, bikeName: str, fromDate: { type: 'string', format: 'date' }, toDate: { type: 'string', format: 'date', nullable: true }, km: num } },
+      MaintenanceRule: {
+        type: 'object',
+        properties: {
+          id: int, bikeId: int, bikeName: str, componentId: { type: 'integer', nullable: true }, title: str,
+          serviceType: { type: 'string', enum: ['REPLACE', 'CLEAN', 'ADJUST', 'REPAIR', 'INSPECTION'] },
+          everyKm: { type: 'number', nullable: true }, everyDays: { type: 'integer', nullable: true }, startDate: { type: 'string', format: 'date' },
+          lastDoneAt: { type: 'string', format: 'date', description: 'Counters run from here: the latest matching service or the start date' }, lastServiceAt: { type: 'string', format: 'date', nullable: true }, kmSince: num, kmRemaining: { type: 'number', nullable: true },
+          daysSince: int, daysRemaining: { type: 'integer', nullable: true }, nextDueDate: { type: 'string', format: 'date', nullable: true },
+          pct: num, status: { type: 'string', enum: ['OK', 'DUE', 'OVERDUE', 'PAUSED'] },
+        },
+      },
+      MaintenanceRuleInput: {
+        type: 'object', required: ['bikeId', 'title', 'serviceType'],
+        description: 'At least one of everyKm / everyDays is required',
+        properties: { bikeId: int, componentId: int, title: str, serviceType: str, everyKm: num, everyDays: int, startDate: { type: 'string', format: 'date' } },
+      },
       ServiceInput: {
         type: 'object', required: ['bikeId', 'date', 'type'],
         properties: {
@@ -131,6 +148,43 @@ module.exports = {
       listParams: [q('bikeId', 'integer'), q('status', 'string', { enum: ['active', 'retired'] }), q('limit', 'integer')],
     }),
     ...crud('Rides', 'rides', 'Ride', 'rides'),
+    '/components/{id}/move': {
+      post: op('Components', 'Move a part to another bike as of a date (keeps its mount history)', {
+        params: [idParam], body: { type: 'object', required: ['bikeId', 'date'], properties: { bikeId: int, date: { type: 'string', format: 'date' } } }, okSchema: ref('Component'),
+      }),
+    },
+    '/maintenance/rules': {
+      get: op('Maintenance', 'List maintenance rules with what is due, most urgent first', { params: [q('bikeId', 'integer'), q('status', 'string', { enum: ['due', 'ok'] })], okSchema: arr(ref('MaintenanceRule')) }),
+      post: op('Maintenance', 'Create a maintenance rule', { body: ref('MaintenanceRuleInput'), ok: 201, okSchema: ref('MaintenanceRule') }),
+    },
+    '/maintenance/rules/{id}': {
+      get: op('Maintenance', 'Get a rule', { params: [idParam], okSchema: ref('MaintenanceRule') }),
+      put: op('Maintenance', 'Update a rule (partial)', { params: [idParam], body: ref('MaintenanceRuleInput'), okSchema: ref('MaintenanceRule') }),
+      delete: op('Maintenance', 'Delete a rule', { params: [idParam], ok: 204 }),
+    },
+    '/maintenance/rules/{id}/complete': {
+      post: op('Maintenance', 'Mark a rule as done: logs a service of its type and restarts its counters', {
+        params: [idParam], body: { type: 'object', properties: { date: { type: 'string', format: 'date' }, cost: num, notes: str } }, ok: 201,
+        okSchema: { type: 'object', properties: { service: ref('Service'), rule: ref('MaintenanceRule') } },
+      }),
+    },
+    '/maintenance/suggested': {
+      post: op('Maintenance', 'Add the standard rules (chain care, adjustments, yearly inspection) to a bike', {
+        body: { type: 'object', required: ['bikeId'], properties: { bikeId: int } }, ok: 201, okSchema: arr(ref('MaintenanceRule')),
+      }),
+    },
+    '/data/export': { get: op('Data', 'Download everything as JSON (add tracks=true for GPS tracks)', { params: [q('tracks', 'boolean')] }) },
+    '/data/export/{file}': {
+      get: op('Data', 'Download one table as CSV: bikes.csv, components.csv, rides.csv, services.csv or rules.csv', {
+        params: [{ name: 'file', in: 'path', required: true, schema: { type: 'string', example: 'rides.csv' } }],
+      }),
+    },
+    '/data/import': {
+      post: op('Data', 'Add the contents of a BikeLedger JSON export to this account (nothing is merged)', {
+        ok: 201, multipart: { type: 'object', required: ['file'], properties: { file: { type: 'string', format: 'binary' } } },
+        okSchema: { type: 'object', properties: { imported: { type: 'object', additionalProperties: int } } },
+      }),
+    },
     '/rides/routes': {
       get: op('Rides', 'Rides that have a GPS track, with simplified [lat, lon] points (for the map)', {
         params: listParams,
@@ -150,6 +204,7 @@ module.exports = {
         okSchema: arr({ type: 'object', properties: { id: str, name: str, lat: num, lon: num, address: str, phone: str, website: str, openingHours: str, brand: str, repair: { type: 'boolean' }, distanceKm: num } }),
       }),
     },
+    '/stats/overview': { get: op('Stats', 'Yearly report: totals, months, per-bike figures, records and cost per km of each part', { params: [q('year', 'integer')] }) },
     '/stats/dashboard': { get: op('Stats', 'Dashboard totals, 12-month series and wear alerts') },
   },
 };

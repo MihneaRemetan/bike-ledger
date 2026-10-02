@@ -91,16 +91,25 @@ async function seed() {
       .filter((r) => r.bikeId === bikeId && r.day >= from && (!to || r.day < to))
       .reduce((s, r) => s + r.km, 0);
 
-  async function addComponent(bikeId, type, brand, model, installedDaysAgo, target, price, retiredDaysAgo) {
+  // `moves` lists later bikes the part was moved to: [{ bikeId, daysAgo }]. Wear is summed over every mount,
+  // and the limit is chosen so the part lands on `target` (fraction of its limit used).
+  async function addComponent(bikeId, type, brand, model, installedDaysAgo, target, price, retiredDaysAgo, moves = []) {
     const installed = dayStr(installedDaysAgo);
     const retired = retiredDaysAgo != null ? dayStr(retiredDaysAgo) : null;
-    const wear = kmBetween(bikeId, installed, retired);
+    const stops = [{ bikeId, from: installed }, ...moves.map((m) => ({ bikeId: m.bikeId, from: dayStr(m.daysAgo) }))];
+    const mounts = stops.map((m, i) => ({ ...m, to: i + 1 < stops.length ? stops[i + 1].from : null }));
+    const wear = mounts.reduce((sum, m) => sum + kmBetween(m.bikeId, m.from, m.to || retired), 0);
     const maxKm = Math.max(500, Math.round(wear / target / 100) * 100);
-    return one(
+    const current = mounts[mounts.length - 1].bikeId;
+    const created = await one(
       `INSERT INTO components (bike_id, type, brand, model, installed_at, max_km, price, retired_at)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
-      [bikeId, type, brand, model, installed, maxKm, price, retired]
+      [current, type, brand, model, installed, maxKm, price, retired]
     );
+    for (const m of mounts) {
+      await query('INSERT INTO component_mounts (component_id, bike_id, from_date, to_date) VALUES ($1,$2,$3,$4)', [created.id, m.bikeId, m.from, m.to]);
+    }
+    return created;
   }
 
   // Gravel: old chain retired, current chain + pads in WARN, rear tyre due, rest OK
@@ -108,7 +117,8 @@ async function seed() {
   await addComponent(gravel.id, 'CHAIN', 'Shimano', 'CN-HG701', 130, 0.86, 120);
   await addComponent(gravel.id, 'CASSETTE', 'Shimano', 'CS-HG700', 290, 0.42, 280);
   await addComponent(gravel.id, 'CHAINRING', 'Shimano', 'GRX FC-RX600', 290, 0.2, 350);
-  await addComponent(gravel.id, 'TYRE_FRONT', 'Schwalbe', 'G-One Bite', 200, 0.55, 190);
+  // the front tyre started on the commuter and moved to the gravel bike 200 days ago
+  await addComponent(commuter.id, 'TYRE_FRONT', 'Schwalbe', 'G-One Bite', 260, 0.55, 190, null, [{ bikeId: gravel.id, daysAgo: 200 }]);
   await addComponent(gravel.id, 'TYRE_REAR', 'Schwalbe', 'G-One Bite', 290, 1.06, 95);
   await addComponent(gravel.id, 'BRAKE_PADS', 'Shimano', 'L03A Resin', 95, 0.9, 80);
   // Commuter
@@ -125,6 +135,21 @@ async function seed() {
   await insertService(commuter.id, null, 160, 'ADJUST', 40, 'Brake and derailleur adjustment at the shop');
   await insertService(gravel.id, null, 75, 'INSPECTION', 0, 'Pre-season check, all bolts torqued');
   await insertService(commuter.id, null, 40, 'REPAIR', 55, 'Rear wheel trued, two broken spokes replaced');
+
+  await insertService(gravel.id, null, 9, 'CLEAN', 0, 'Chain cleaned and waxed');
+
+  // Maintenance rules. The distances are picked so the demo shows every state (OK, due soon, overdue).
+  const kmSince = (bikeId, daysAgo) => kmBetween(bikeId, dayStr(daysAgo), null);
+  const addRule = (bikeId, title, serviceType, everyKm, everyDays, startDaysAgo) =>
+    query(
+      'INSERT INTO maintenance_rules (bike_id, title, service_type, every_km, every_days, start_date) VALUES ($1,$2,$3,$4,$5,$6)',
+      [bikeId, title, serviceType, everyKm, everyDays, dayStr(startDaysAgo)]
+    );
+  await addRule(gravel.id, 'Clean and lube the chain', 'CLEAN', Math.round(kmSince(gravel.id, 9) / 0.85 / 10) * 10, null, 300); // due soon
+  await addRule(gravel.id, 'Brake and gear adjustment', 'ADJUST', Math.round(kmSince(gravel.id, 150) / 1.15 / 100) * 100, 365, 150); // overdue
+  await addRule(gravel.id, 'Full inspection', 'INSPECTION', null, 365, 300); // fine
+  await addRule(commuter.id, 'Brake and gear adjustment', 'ADJUST', 1000, 365, 300);
+  await addRule(commuter.id, 'Clean and lube the chain', 'CLEAN', 300, null, 60);
 
   console.log(`Seeded ${rides.length} rides. Login: ${DEMO_EMAIL} / ${DEMO_PASSWORD}`);
 }

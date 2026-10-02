@@ -107,6 +107,24 @@ const serviceBase = z.object({
   notes: optText(1000),
 });
 
+const ruleBase = z.object({
+  bikeId: id,
+  componentId: optId,
+  title: z.string().trim().min(1, 'Title is required').max(120),
+  serviceType: z.enum(SERVICE_TYPES, { errorMap: () => ({ message: 'Invalid service type' }) }),
+  everyKm: optNum(z.number().positive('Must be greater than 0').max(200000)),
+  everyDays: optNum(z.number().int('Must be a whole number').positive('Must be greater than 0').max(3650)),
+  startDate: optDate,
+});
+const needsInterval = (d, ctx) => {
+  if (d.everyKm == null && d.everyDays == null) {
+    ctx.addIssue({ code: 'custom', path: ['everyKm'], message: 'Set a distance, a number of days, or both' });
+  }
+};
+const ruleComplete = z.object({ date: optDate, cost: optNum(z.number().min(0).max(100000)), notes: optText(1000) });
+
+const componentMove = z.object({ bikeId: id, date: reqDate });
+
 const listQuery = z.object({
   bikeId: optId,
   from: optDate,
@@ -121,7 +139,34 @@ const componentListQuery = listQuery
   .pick({ bikeId: true, limit: true })
   .extend({ status: z.enum(['active', 'retired']).optional() });
 
+// Shape of a BikeLedger export file (see routes/data.js). Rows keep their old ids so references can be re-linked.
+const exportId = z.number().int().positive();
+const MAX = { bikes: 200, components: 5000, rides: 100000, services: 50000, rules: 5000, tracks: 100000 };
+const bikeFile = bikeBase.extend({ id: exportId });
+const mountFile = z.object({ bikeId: exportId, fromDate: dateOnly, toDate: dateOnly.nullable().optional() });
+const componentFile = componentBase.extend({ id: exportId, bikeId: exportId, mounts: z.array(mountFile).max(100).optional() }).superRefine(retiredCheck);
+const rideFile = rideBase.extend({ id: exportId, bikeId: exportId, source: z.enum(['MANUAL', 'GPX']).default('MANUAL') });
+const serviceFile = serviceBase.extend({ id: exportId.optional(), bikeId: exportId, componentId: exportId.nullable().optional() });
+const ruleFile = ruleBase.extend({ id: exportId.optional(), bikeId: exportId, componentId: exportId.nullable().optional() }).superRefine(needsInterval);
+const trackFile = z.object({ rideId: exportId, points: z.array(z.tuple([z.number(), z.number()])).min(2).max(5000) });
+const exportFile = z.object({
+  app: z.literal('BikeLedger', { errorMap: () => ({ message: 'This is not a BikeLedger export' }) }),
+  version: z.literal(1, { errorMap: () => ({ message: 'Unsupported export version' }) }),
+  bikes: z.array(bikeFile).max(MAX.bikes),
+  components: z.array(componentFile).max(MAX.components).default([]),
+  rides: z.array(rideFile).max(MAX.rides).default([]),
+  services: z.array(serviceFile).max(MAX.services).default([]),
+  rules: z.array(ruleFile).max(MAX.rules).default([]),
+  tracks: z.array(trackFile).max(MAX.tracks).default([]),
+});
+
+const yearQuery = z.object({
+  year: z.preprocess((v) => (v === undefined || v === '' ? undefined : Number(v)), z.number().int().min(2000).max(2100).optional()),
+});
+
 module.exports = {
+  exportFile,
+  yearQuery,
   BIKE_TYPES,
   COMPONENT_TYPES,
   SERVICE_TYPES,
@@ -135,6 +180,11 @@ module.exports = {
   rideUpdate: rideBase.partial(),
   service: serviceBase.extend({ replacement: replacement.optional() }),
   serviceUpdate: serviceBase.partial(),
+  componentMove,
+  maintenanceRule: ruleBase.superRefine(needsInterval),
+  maintenanceRuleUpdate: ruleBase.partial(),
+  maintenanceComplete: ruleComplete,
+  maintenanceSuggest: z.object({ bikeId: id }),
   listQuery,
   componentListQuery,
 };

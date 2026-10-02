@@ -138,15 +138,17 @@ describe('components: update and delete', () => {
     assert.equal(back.body.retiredAt, null);
     assert.notEqual(back.body.status, 'RETIRED');
   });
-  test('moving a part to another own bike works; to another user bike is a 404', async () => {
+  test('changing the bike in a plain update moves the part as of today; other users bikes are a 404', async () => {
     const b1 = await c.mkBike();
     const b2 = await c.mkBike();
     const foreign = await c.mkBike(c.B);
     const comp = await c.mkComp(b1.id);
-    await c.mkRide(b2.id, '2024-02-01T08:00:00Z', 77);
+    await c.mkRide(b1.id, '2024-02-01T08:00:00Z', 50);
+    await c.mkRide(b2.id, '2024-02-01T08:00:00Z', 77); // before the move: not this part's
     const moved = await c.A.put(`/api/components/${comp.id}`).send({ bikeId: b2.id });
+    assert.equal(moved.status, 200);
     assert.equal(moved.body.bikeId, b2.id);
-    assert.equal(moved.body.wearKm, 77);
+    assert.equal(moved.body.wearKm, 50); // the km done on the first bike are kept
     assert.equal((await c.A.put(`/api/components/${comp.id}`).send({ bikeId: foreign.id })).status, 404);
   });
   test('another user can neither update nor delete it', async () => {

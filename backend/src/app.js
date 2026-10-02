@@ -17,6 +17,8 @@ function createApp() {
   app.use('/api/components', requireAuth, require('./routes/components'));
   app.use('/api/rides', requireAuth, require('./routes/rides'));
   app.use('/api/services', requireAuth, require('./routes/services'));
+  app.use('/api/maintenance', requireAuth, require('./routes/maintenance'));
+  app.use('/api/data', requireAuth, require('./routes/data'));
   app.use('/api/stats', requireAuth, require('./routes/stats'));
   app.use('/api/places', requireAuth, require('./routes/places'));
 

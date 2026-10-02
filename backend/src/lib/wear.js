@@ -11,15 +11,19 @@ const DEFAULT_MAX_KM = {
   OTHER: 5000,
 };
 
-// Wear is never stored: initial km plus every ride on the same bike while the part was mounted.
-// A ride on the retirement day counts for the replacement part only (strict "<").
+// Wear is never stored: initial km plus every ride on a bike the part was mounted on, on a day inside
+// that mount (see component_mounts). The end of a mount, and the retirement day, are exclusive, so a ride
+// on the day of a swap or move counts for the new part only.
 const WEAR_SELECT = `
   c.*,
   c.initial_km + COALESCE((
-    SELECT SUM(r.distance_km) FROM rides r
-    WHERE r.bike_id = c.bike_id
-      AND (r.date AT TIME ZONE 'UTC')::date >= c.installed_at
+    SELECT SUM(r.distance_km)
+    FROM component_mounts m
+    JOIN rides r ON r.bike_id = m.bike_id
+      AND (r.date AT TIME ZONE 'UTC')::date >= m.from_date
+      AND (m.to_date IS NULL OR (r.date AT TIME ZONE 'UTC')::date < m.to_date)
       AND (c.retired_at IS NULL OR (r.date AT TIME ZONE 'UTC')::date < c.retired_at)
+    WHERE m.component_id = c.id
   ), 0) AS wear_km`;
 
 function decorate(row) {

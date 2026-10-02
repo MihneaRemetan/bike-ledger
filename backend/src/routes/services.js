@@ -4,6 +4,7 @@ const { ah, HttpError, parseId } = require('../lib/http');
 const { assertBikeOwner, findOwned } = require('../lib/ownership');
 const schemas = require('../lib/schemas');
 const { WEAR_SELECT, decorate } = require('../lib/wear');
+const { insertComponent, assertComponentOnBike } = require('../lib/components');
 
 const router = express.Router();
 const FIELDS = ['bikeId', 'componentId', 'date', 'type', 'cost', 'notes'];
@@ -14,13 +15,6 @@ const SERVICE_SELECT = `
   JOIN bikes b ON b.id = s.bike_id
   LEFT JOIN components c ON c.id = s.component_id
   WHERE`;
-
-// The component must belong to the user (404) and to the service's bike (400).
-async function assertComponentOnBike(componentId, bikeId, userId, client) {
-  const component = await findOwned('components', componentId, userId, client);
-  if (component.bikeId !== bikeId) throw new HttpError(400, 'Component is not on this bike');
-  return component;
-}
 
 router.get(
   '/',
@@ -66,6 +60,9 @@ router.post(
     let old = null;
     if (d.componentId) {
       old = await assertComponentOnBike(d.componentId, d.bikeId, req.userId);
+      if (d.type === 'REPLACE' && old.bikeId !== d.bikeId) {
+        throw new HttpError(400, 'Only the part currently on this bike can be replaced');
+      }
       if (d.type === 'REPLACE' && d.date < old.installedAt) {
         throw new HttpError(400, 'Service date cannot be before the component was installed');
       }
@@ -88,14 +85,12 @@ router.post(
         retiredComponentId = old.id;
         if (d.replacement) {
           const r = d.replacement;
-          const created = await one(
-            `INSERT INTO components (bike_id, type, brand, model, installed_at, initial_km, max_km, price)
-             VALUES ($1,$2,$3,$4,$5,0,$6,$7) RETURNING id`,
-            [d.bikeId, old.type, r.brand ?? null, r.model ?? null, d.date, r.maxKm ?? old.maxKm, r.price ?? null],
-            client
-          );
+          const createdId = await insertComponent(client, {
+            bikeId: d.bikeId, type: old.type, brand: r.brand, model: r.model, installedAt: d.date,
+            initialKm: 0, maxKm: r.maxKm ?? old.maxKm, price: r.price,
+          });
           newComponent = decorate(
-            await one(`SELECT ${WEAR_SELECT} FROM components c WHERE c.id = $1`, [created.id], client)
+            await one(`SELECT ${WEAR_SELECT} FROM components c WHERE c.id = $1`, [createdId], client)
           );
         }
       }

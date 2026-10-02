@@ -231,6 +231,16 @@ describe('demo data', () => {
         assert.ok(comps.some((c) => !c.retiredAt && c.pct < 0.8), 'a healthy part');
         const services = await query('SELECT DISTINCT s.type FROM services s JOIN bikes b ON b.id = s.bike_id JOIN users u ON u.id = b.user_id WHERE u.email = $1', [email]);
         assert.deepEqual(services.map((s) => s.type).sort(), ['ADJUST', 'CLEAN', 'INSPECTION', 'REPAIR', 'REPLACE']);
+        // every part has mounts that match its bike; one part has moved between bikes
+        const mounts = await query(`SELECT c.id, c.bike_id, COUNT(m.id)::int AS n, bool_or(m.to_date IS NULL AND m.bike_id = c.bike_id) AS open_on_current
+          FROM components c JOIN bikes b ON b.id = c.bike_id JOIN users u ON u.id = b.user_id JOIN component_mounts m ON m.component_id = c.id
+          WHERE u.email = $1 GROUP BY c.id, c.bike_id`, [email]);
+        assert.equal(mounts.length, comps.length);
+        assert.ok(mounts.every((m) => m.openOnCurrent));
+        assert.ok(mounts.some((m) => m.n === 2), 'a part that moved between bikes');
+        // maintenance rules cover the three states
+        const rules = await query(`SELECT r.title, r.every_km, r.every_days FROM maintenance_rules r JOIN bikes b ON b.id = r.bike_id JOIN users u ON u.id = b.user_id WHERE u.email = $1`, [email]);
+        assert.equal(rules.length, 5);
       } finally {
         await query('DELETE FROM users WHERE email = $1', [email]);
       }
