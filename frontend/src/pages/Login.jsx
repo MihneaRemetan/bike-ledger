@@ -11,12 +11,12 @@ export default function Login() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const submit = async (e, creds = { email, password }) => {
-    e?.preventDefault();
+  const submit = async (e) => {
+    e.preventDefault();
     setBusy(true);
     setError('');
     try {
-      await login(creds.email, creds.password);
+      await login(email, password);
     } catch (err) {
       setError(err.message);
       setBusy(false);
@@ -30,10 +30,6 @@ export default function Login() {
         <TextField label="Email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
         <TextField label="Password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         <Button type="submit" variant="contained" size="large" disabled={busy}>Log in</Button>
-        <Button variant="outlined" disabled={busy} onClick={() => submit(null, { email: 'demo@bikeledger.app', password: 'demo1234' })}>
-          Try the demo account
-        </Button>
-        <Typography variant="caption" color="text.secondary">Demo: demo@bikeledger.app / demo1234</Typography>
         <Typography variant="body2">
           No account? <Link component={RouterLink} to="/register">Create one</Link>
         </Typography>
