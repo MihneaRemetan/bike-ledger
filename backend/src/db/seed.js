@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const { pool, one, query } = require('./pool');
 const { migrate } = require('./migrate');
+const { haversineKm } = require('../lib/gpx');
 const DEMO_ROUTES = require('./demo-routes.json'); // real streets around Timisoara, see scripts/generate-demo-routes.js
 
 const DEMO_EMAIL = 'demo@bikeledger.app';
@@ -16,10 +17,16 @@ function makeRng(seed) {
   };
 }
 
-const pick = (list, rng) => list[Math.floor(rng() * list.length)];
-// Real rides on the same route differ a little in length (detours, GPS noise)
-const jitterKm = (km, rng) => Math.round(km * (0.97 + rng() * 0.06) * 10) / 10;
+// Length of the drawn line itself, so a ride's km always matches what the map shows
+const lineKm = (points) => {
+  let km = 0;
+  for (let i = 1; i < points.length; i++) {
+    km += haversineKm({ lat: points[i - 1][0], lon: points[i - 1][1] }, { lat: points[i][0], lon: points[i][1] });
+  }
+  return Math.round(km * 10) / 10;
+};
 
+const pick = (list, rng) => list[Math.floor(rng() * list.length)];
 const dayStr = (daysAgo) => new Date(Date.now() - daysAgo * 86400000).toISOString().slice(0, 10);
 
 async function seed() {
@@ -50,21 +57,22 @@ async function seed() {
     const date = new Date(Date.now() - d * 86400000);
     const dow = date.getUTCDay();
     if (rng() < 0.4) {
-      // About two thirds of the gravel rides follow one of the saved routes, the rest are logged by hand
-      const route = rng() < 0.65 ? pick(gravelRoutes, rng) : null;
-      const km = route ? jitterKm(route.distanceKm, rng) : Math.round((25 + rng() * 70) * 10) / 10;
+      // Every ride follows one of the saved routes and has exactly that route's length,
+      // so the Rides page and the Map always agree
+      const route = pick(gravelRoutes, rng);
+      const km = lineKm(route.points);
       rides.push({
         bikeId: gravel.id, day: dayStr(d), hour: 8, km, route,
         min: Math.round((km / (20 + rng() * 6)) * 60), ele: Math.round(km * (1 + rng() * 2.5)),
-        title: route ? route.name : km > 70 ? 'Long gravel loop' : km > 45 ? 'Gravel ride' : 'Quick spin',
+        title: route.name,
       });
     }
     if (dow >= 1 && dow <= 5 && rng() < 0.6) {
       const route = pick(commuteRoutes, rng);
-      const km = jitterKm(route.distanceKm, rng);
+      const km = lineKm(route.points);
       rides.push({
         bikeId: commuter.id, day: dayStr(d), hour: 7, km, route,
-        min: Math.round((km / 18) * 60), ele: Math.round(km * 1.5), title: 'Commute',
+        min: Math.round((km / 18) * 60), ele: Math.round(km * 1.5), title: route.name,
       });
     }
   }
@@ -72,11 +80,9 @@ async function seed() {
     const created = await one(
       `INSERT INTO rides (bike_id, date, title, distance_km, duration_min, elevation_m, source)
        VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
-      [r.bikeId, `${r.day}T${String(r.hour).padStart(2, '0')}:00:00Z`, r.title, r.km, r.min, r.ele, r.route ? 'GPX' : 'MANUAL']
+      [r.bikeId, `${r.day}T${String(r.hour).padStart(2, '0')}:00:00Z`, r.title, r.km, r.min, r.ele, 'GPX']
     );
-    if (r.route) {
-      await query('INSERT INTO ride_tracks (ride_id, points) VALUES ($1, $2)', [created.id, JSON.stringify(r.route.points)]);
-    }
+    await query('INSERT INTO ride_tracks (ride_id, points) VALUES ($1, $2)', [created.id, JSON.stringify(r.route.points)]);
   }
 
   // Wear in the seed data, used to pick max_km so each component lands on the intended status
