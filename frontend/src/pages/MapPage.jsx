@@ -3,7 +3,7 @@ import { Link as RouterLink, useSearchParams } from 'react-router-dom';
 import L from 'leaflet';
 import { Circle, MapContainer, Marker, Polyline, Popup, TileLayer, Tooltip, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Alert, Box, Button, Card, CardContent, Chip, CircularProgress, FormControlLabel, Link, Skeleton, Switch, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Card, CardContent, Chip, CircularProgress, FormControlLabel, Link, Skeleton, Switch, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import StoreIcon from '@mui/icons-material/StorefrontOutlined';
 import LocationIcon from '@mui/icons-material/MyLocationOutlined';
 import { api } from '../api/client';
@@ -12,6 +12,7 @@ import { useLoad } from '../lib/useLoad';
 import { fmtDate, fmtKm } from '../lib/format';
 import PageHeader from '../components/PageHeader';
 import BikeFilter from '../components/BikeFilter';
+import HeatLayer, { STOPS, STOPS_DARK } from '../components/HeatLayer';
 
 const PALETTE = ['#1f5c4a', '#e07b00', '#2563a8', '#b8338a', '#6b7a1f', '#c62828'];
 const PALETTE_DARK = ['#5bbf9f', '#ffa94d', '#6cb0ff', '#e879c0', '#b5c94a', '#ff6b6b'];
@@ -67,6 +68,7 @@ export default function MapPage() {
   const [to, setTo] = useState('');
   const [active, setActive] = useState(highlight);
   const [showRoutes, setShowRoutes] = useState(true);
+  const [style, setStyle] = useState('bike'); // 'bike': a colour per bike, 'heat': a heatmap of how often you rode each street
   const dark = useTheme().palette.mode === 'dark';
   const colors = dark ? PALETTE_DARK : PALETTE;
   const { data: bikes } = useLoad(() => api('/bikes'), []);
@@ -155,7 +157,7 @@ export default function MapPage() {
       {routes && (
         <>
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', mb: 1.5 }}>
-            {showRoutes && usedBikes.map((b) => (
+            {showRoutes && style === 'bike' && usedBikes.map((b) => (
               <Chip key={b.id} size="small" label={b.name} sx={{ bgcolor: colorOf(b.id), color: dark ? '#000' : '#fff', fontWeight: 600 }} />
             ))}
             <FormControlLabel
@@ -163,6 +165,12 @@ export default function MapPage() {
               control={<Switch size="small" checked={showRoutes} onChange={(e) => setShowRoutes(e.target.checked)} />}
               label={<Typography variant="body2">Show routes</Typography>}
             />
+            {showRoutes && (
+              <ToggleButtonGroup size="small" exclusive value={style} onChange={(_, v) => v && setStyle(v)} aria-label="Route style">
+                <ToggleButton value="bike">By bike</ToggleButton>
+                <ToggleButton value="heat">Heatmap</ToggleButton>
+              </ToggleButtonGroup>
+            )}
             <Box sx={{ flexGrow: 1 }} />
             <Button size="small" variant="contained" color="secondary" startIcon={shopsLoading ? <CircularProgress size={16} color="inherit" /> : <StoreIcon />} onClick={searchHere} disabled={shopsLoading || !map} sx={{ color: '#000' }}>
               Find bike shops in this area
@@ -202,7 +210,8 @@ export default function MapPage() {
                 url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
               <FitBounds routes={routes} focusId={highlight} />
-              {showRoutes && routes.map((r) => (
+              {showRoutes && style === 'heat' && <HeatLayer routes={routes} dark={dark} />}
+              {showRoutes && style === 'bike' && routes.map((r) => (
                 <Polyline
                   key={r.id}
                   positions={r.points}
@@ -242,8 +251,19 @@ export default function MapPage() {
               ))}
             </MapContainer>
           </Card>
+          {showRoutes && style === 'heat' && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1.5 }} aria-label="Heatmap legend">
+              <Typography variant="caption" color="text.secondary">Rode once</Typography>
+              <Box style={{ backgroundImage: `linear-gradient(90deg, ${(dark ? STOPS_DARK : STOPS).slice(2).map(([, c]) => `rgb(${c[0]}, ${c[1]}, ${c[2]})`).join(', ')})` }} sx={{ width: 160, height: 10, borderRadius: 5 }} />
+              <Typography variant="caption" color="text.secondary">Many times</Typography>
+            </Box>
+          )}
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-            {showRoutes ? 'Click a route for details. Routes are simplified to keep the map fast.' : 'Routes are hidden. Turn on "Show routes" to see them again.'}
+            {!showRoutes
+              ? 'Routes are hidden. Turn on "Show routes" to see them again.'
+              : style === 'heat'
+                ? 'The brighter a street, the more often you rode it. Rides over the same street add up.'
+                : 'Click a route for details. Routes are simplified to keep the map fast.'}
           </Typography>
         </>
       )}

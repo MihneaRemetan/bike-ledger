@@ -32,6 +32,12 @@ vi.mock('react-leaflet', async () => {
   };
 });
 
+// The real layer draws on a canvas; here we only check that the page uses it
+vi.mock('../../components/HeatLayer', async (importOriginal) => ({
+  ...(await importOriginal()),
+  default: ({ routes, dark }) => <div data-testid="heat" data-routes={routes.length} data-dark={String(dark)} />,
+}));
+
 const route = (id, bikeId, title, extra = {}) => ({ id, bikeId, bikeName: bikeId === 1 ? 'Gravel' : 'Commuter', date: '2025-05-01T08:00:00Z', title, distanceKm: 40, points: [[45.7, 21.2], [45.8, 21.3], [45.75, 21.25]], ...extra });
 const ROUTES = [route(1, 1, 'West loop'), route(2, 1, 'South loop', { distanceKm: 28.4 }), route(3, 2, 'Home to work', { distanceKm: 5.1 })];
 const SHOPS = [
@@ -40,9 +46,9 @@ const SHOPS = [
 ];
 const bikes = [bike({ id: 1, name: 'Gravel' }), bike({ id: 2, name: 'Commuter' })];
 
-const setup = (routes = {}, route = '/map') => {
+const setup = (routes = {}, route = '/map', mode) => {
   const m = mockApi({ 'GET /bikes': bikes, 'GET /rides/routes': ROUTES, 'GET /places/bike-shops': SHOPS, ...routes });
-  renderWithProviders(<MapPage />, { route });
+  renderWithProviders(<MapPage />, { route, mode });
   return m;
 };
 const findShops = async () => userEvent.click(await screen.findByRole('button', { name: 'Find bike shops in this area' }));
@@ -129,6 +135,77 @@ describe('Map page: routes', () => {
     mockApi({ 'GET /bikes': bikes, 'GET /rides/routes': () => new Promise(() => {}) });
     renderWithProviders(<MapPage />);
     expect(document.querySelector('.MuiSkeleton-root')).toBeInTheDocument();
+  });
+});
+
+describe('Map page: heatmap', () => {
+  test('routes are shown by bike at first, with a choice of style', async () => {
+    setup();
+    await waitFor(() => expect(screen.getAllByTestId('route')).toHaveLength(3));
+    expect(screen.getByRole('button', { name: 'By bike' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Heatmap' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByTestId('heat')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Heatmap legend')).not.toBeInTheDocument();
+  });
+  test('the heatmap replaces the coloured lines and the bike colours, and explains how to read it', async () => {
+    setup();
+    await waitFor(() => expect(screen.getAllByTestId('route')).toHaveLength(3));
+    await userEvent.click(screen.getByRole('button', { name: 'Heatmap' }));
+    expect(screen.getByTestId('heat')).toHaveAttribute('data-routes', '3');
+    expect(screen.queryAllByTestId('route')).toHaveLength(0);
+    expect(screen.queryByText('Gravel', { selector: '.MuiChip-label' })).not.toBeInTheDocument();
+    const legend = screen.getByLabelText('Heatmap legend');
+    expect(within(legend).getByText('Rode once')).toBeInTheDocument();
+    expect(within(legend).getByText('Many times')).toBeInTheDocument();
+    expect(screen.getByText(/The brighter a street, the more often you rode it/)).toBeInTheDocument();
+  });
+  test('switching back restores the lines and the bike colours', async () => {
+    setup();
+    await waitFor(() => expect(screen.getAllByTestId('route')).toHaveLength(3));
+    await userEvent.click(screen.getByRole('button', { name: 'Heatmap' }));
+    await userEvent.click(screen.getByRole('button', { name: 'By bike' }));
+    expect(screen.queryByTestId('heat')).not.toBeInTheDocument();
+    expect(screen.getAllByTestId('route')).toHaveLength(3);
+    expect(screen.getByText('Gravel', { selector: '.MuiChip-label' })).toBeInTheDocument();
+  });
+  test('pressing the selected style again keeps it (one of the two is always chosen)', async () => {
+    setup();
+    await waitFor(() => expect(screen.getAllByTestId('route')).toHaveLength(3));
+    await userEvent.click(screen.getByRole('button', { name: 'By bike' }));
+    expect(screen.getByRole('button', { name: 'By bike' })).toHaveAttribute('aria-pressed', 'true');
+  });
+  test('"Show routes" off hides everything, including the style choice; on again brings back the chosen style', async () => {
+    setup();
+    await waitFor(() => expect(screen.getAllByTestId('route')).toHaveLength(3));
+    await userEvent.click(screen.getByRole('button', { name: 'Heatmap' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Show routes' }));
+    expect(screen.queryByTestId('heat')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Heatmap' })).not.toBeInTheDocument();
+    expect(screen.getByText(/Routes are hidden/)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Heatmap legend')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Show routes' }));
+    expect(screen.getByTestId('heat')).toBeInTheDocument();
+  });
+  test('on a dark map the layer and its legend use the bright palette', async () => {
+    setup({}, '/map', 'dark');
+    await waitFor(() => expect(screen.getAllByTestId('route')).toHaveLength(3));
+    await userEvent.click(screen.getByRole('button', { name: 'Heatmap' }));
+    expect(screen.getByTestId('heat')).toHaveAttribute('data-dark', 'true');
+    expect(screen.getByLabelText('Heatmap legend').querySelector('div').style.backgroundImage).toContain('rgb(255, 255, 255)');
+  });
+  test('on a light map the legend ends in dark red', async () => {
+    setup();
+    await waitFor(() => expect(screen.getAllByTestId('route')).toHaveLength(3));
+    await userEvent.click(screen.getByRole('button', { name: 'Heatmap' }));
+    expect(screen.getByTestId('heat')).toHaveAttribute('data-dark', 'false');
+    expect(screen.getByLabelText('Heatmap legend').querySelector('div').style.backgroundImage).toContain('rgb(110, 0, 60)');
+  });
+  test('shop pins stay on top of the heatmap', async () => {
+    setup();
+    await userEvent.click(await screen.findByRole('button', { name: 'Heatmap' }));
+    await findShops();
+    await waitFor(() => expect(screen.getAllByTestId('shop-pin')).toHaveLength(2));
+    expect(screen.getByTestId('heat')).toBeInTheDocument();
   });
 });
 

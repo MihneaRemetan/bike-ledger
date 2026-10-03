@@ -17,10 +17,10 @@ A maintenance ledger for bicycles. Log your bikes, the parts mounted on them, yo
   </tr>
   <tr>
     <td><img src="docs/screenshots/map-shops.jpg" alt="Route map with bike shops"><br><sub><b>Map</b>: every imported route, plus bike shops nearby</sub></td>
-    <td><img src="docs/screenshots/statistics.png" alt="Statistics"><br><sub><b>Statistics</b>: yearly report, records, cost per km of each part</sub></td>
+    <td><img src="docs/screenshots/heatmap.jpg" alt="Heatmap of all rides"><br><sub><b>Heatmap</b>: the more often you rode a street, the brighter it is</sub></td>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/components.png" alt="Components"><br><sub><b>Components</b>: every part across all bikes</sub></td>
+    <td><img src="docs/screenshots/statistics.png" alt="Statistics"><br><sub><b>Statistics</b>: yearly report, records, cost per km of each part</sub></td>
     <td><img src="docs/screenshots/dashboard-dark.png" alt="Dark mode"><br><sub><b>Dark mode</b></sub></td>
   </tr>
   <tr>
@@ -44,7 +44,7 @@ A maintenance ledger for bicycles. Log your bikes, the parts mounted on them, yo
 
 **Rides and maps**
 - **GPX / TCX import**: upload a `.gpx`, `.tcx` or gzipped file (for example a Strava "Export GPX"), preview distance, moving time and elevation, then save. Pauses are not counted as riding time.
-- **Route map**: every imported ride keeps a simplified GPS track, drawn together on a map; routes can be shown or hidden.
+- **Route map and heatmap**: every imported ride keeps a simplified GPS track, drawn on a map by bike or as a Strava-style heatmap where the streets you rode most often are the brightest. Routes can be shown or hidden, and the heatmap has its own light and dark palettes.
 - **Nearby bike shops**: shops and repair workshops around the map area or your location (OpenStreetMap data), with opening hours, website and directions. Drag the search point to look elsewhere.
 
 **Insight and data**
@@ -165,7 +165,7 @@ DATABASE_URL=postgresql://bikeledger:bikeledger@localhost:5432/bikeledger npm ru
 
 What they cover: every endpoint (auth, bikes, components, rides, services, maintenance rules, data export/import, stats, places), validation and error codes, per-user data isolation, the wear calculation and its boundaries, the REPLACE transaction and its rollback, GPX/TCX/gzip import and the route map data, bike-shop search (with the OpenStreetMap service mocked), the database layer (migrations, constraints, transactions), configuration, the seed script, and that every route is documented in the OpenAPI spec.
 
-**Frontend** (Vitest + React Testing Library + jsdom; 368 tests). The API is mocked, so no server is needed.
+**Frontend** (Vitest + React Testing Library + jsdom; 398 tests). The API is mocked, so no server is needed.
 
 ```bash
 cd frontend
