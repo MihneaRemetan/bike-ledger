@@ -16,16 +16,14 @@ import { COMPONENT_TYPES, label } from '../lib/constants';
 import { fmtDate } from '../lib/format';
 import PageHeader from '../components/PageHeader';
 import EmptyState from '../components/EmptyState';
-import ConfirmDialog from '../components/ConfirmDialog';
+import DeleteDialog from '../components/DeleteDialog';
 import BikeFilter from '../components/BikeFilter';
 import WearBar from '../components/WearBar';
-import { useNotify } from '../components/Notify';
 import { ComponentFormDialog, MoveComponentDialog } from '../components/forms';
 import ComponentHistoryDialog from '../components/ComponentHistoryDialog';
 import BuyMenu from '../components/BuyMenu';
 
 export default function Components() {
-  const notify = useNotify();
   const [bikeId, setBikeId] = useState('');
   const [status, setStatus] = useState('active');
   const { data: bikes } = useLoad(() => api('/bikes'), []);
@@ -92,21 +90,14 @@ export default function Components() {
       <ComponentFormDialog open={form.open} component={form.item} bikes={bikes} defaultBikeId={bikeId} onClose={closeForm} onSaved={() => { closeForm(); reload(); }} />
       <MoveComponentDialog open={Boolean(move)} component={move} bikes={bikes} onClose={() => setMove(null)} onSaved={() => { setMove(null); reload(); }} />
       <ComponentHistoryDialog open={Boolean(history)} component={history} onClose={() => setHistory(null)} />
-      <ConfirmDialog
-        open={Boolean(del)}
+      <DeleteDialog
+        item={del}
+        path="/components"
         title="Delete component?"
         text="Its services stay in the history but are no longer linked to it."
+        deletedMessage="Component deleted"
         onClose={() => setDel(null)}
-        onConfirm={async () => {
-          try {
-            await api(`/components/${del.id}`, { method: 'DELETE' });
-            notify.success('Component deleted');
-            setDel(null);
-            reload();
-          } catch (e) {
-            notify.error(e.message);
-          }
-        }}
+        onDeleted={reload}
       />
     </>
   );

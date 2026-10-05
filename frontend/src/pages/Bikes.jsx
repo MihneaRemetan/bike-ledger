@@ -10,13 +10,11 @@ import { BIKE_TYPES, label } from '../lib/constants';
 import { fmtKm, fmtMoney } from '../lib/format';
 import PageHeader from '../components/PageHeader';
 import EmptyState from '../components/EmptyState';
-import ConfirmDialog from '../components/ConfirmDialog';
-import { useNotify } from '../components/Notify';
+import DeleteDialog from '../components/DeleteDialog';
 import { BikeFormDialog } from '../components/forms';
 
 export default function Bikes() {
   const navigate = useNavigate();
-  const notify = useNotify();
   const { data: bikes, loading, error, reload } = useLoad(() => api('/bikes'), []);
   const [form, setForm] = useState({ open: false, bike: null });
   const [del, setDel] = useState(null);
@@ -62,21 +60,14 @@ export default function Bikes() {
       </Box>
 
       <BikeFormDialog open={form.open} bike={form.bike} onClose={closeForm} onSaved={() => { closeForm(); reload(); }} />
-      <ConfirmDialog
-        open={Boolean(del)}
+      <DeleteDialog
+        item={del}
+        path="/bikes"
         title="Delete bike?"
-        text={`"${del?.name}" and all its components, rides and services will be permanently deleted.`}
+        text={(b) => `"${b.name}" and all its components, rides and services will be permanently deleted.`}
+        deletedMessage="Bike deleted"
         onClose={() => setDel(null)}
-        onConfirm={async () => {
-          try {
-            await api(`/bikes/${del.id}`, { method: 'DELETE' });
-            notify.success('Bike deleted');
-            setDel(null);
-            reload();
-          } catch (e) {
-            notify.error(e.message);
-          }
-        }}
+        onDeleted={reload}
       />
     </>
   );

@@ -1,5 +1,5 @@
 const express = require('express');
-const { query, one, buildUpdate } = require('../db/pool');
+const { query, one, updateRow } = require('../db/pool');
 const { ah, HttpError, parseId } = require('../lib/http');
 const { assertBikeOwner } = require('../lib/ownership');
 const schemas = require('../lib/schemas');
@@ -88,13 +88,8 @@ router.put(
     const id = parseId(req.params.id);
     await assertBikeOwner(id, req.userId);
     const d = schemas.bikeUpdate.parse(req.body);
-    const { sets, values } = buildUpdate(d, FIELDS);
-    if (!sets.length) return res.json(await assertBikeOwner(id, req.userId));
-    const bike = await one(
-      `UPDATE bikes SET ${sets.join(', ')} WHERE id = $${values.length + 1} RETURNING *`,
-      [...values, id]
-    );
-    res.json(bike);
+    await updateRow('bikes', id, d, FIELDS);
+    res.json(await assertBikeOwner(id, req.userId));
   })
 );
 

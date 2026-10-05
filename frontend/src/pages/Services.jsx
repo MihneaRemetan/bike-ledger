@@ -13,13 +13,11 @@ import { COMPONENT_TYPES, SERVICE_TYPES, label } from '../lib/constants';
 import { fmtDate, fmtMoney } from '../lib/format';
 import PageHeader from '../components/PageHeader';
 import EmptyState from '../components/EmptyState';
-import ConfirmDialog from '../components/ConfirmDialog';
+import DeleteDialog from '../components/DeleteDialog';
 import BikeFilter from '../components/BikeFilter';
-import { useNotify } from '../components/Notify';
 import { ServiceFormDialog } from '../components/forms';
 
 export default function Services() {
-  const notify = useNotify();
   const [bikeId, setBikeId] = useState('');
   const { data: bikes } = useLoad(() => api('/bikes'), []);
   const { data: items, loading, error, reload } = useLoad(() => api('/services', { params: { bikeId } }), [bikeId]);
@@ -68,21 +66,14 @@ export default function Services() {
       )}
 
       <ServiceFormDialog open={form.open} service={form.item} preset={preset} bikes={bikes} onClose={closeForm} onSaved={() => { closeForm(); reload(); }} />
-      <ConfirmDialog
-        open={Boolean(del)}
+      <DeleteDialog
+        item={del}
+        path="/services"
         title="Delete service?"
         text="A replaced component stays retired; only the service record is removed."
+        deletedMessage="Service deleted"
         onClose={() => setDel(null)}
-        onConfirm={async () => {
-          try {
-            await api(`/services/${del.id}`, { method: 'DELETE' });
-            notify.success('Service deleted');
-            setDel(null);
-            reload();
-          } catch (e) {
-            notify.error(e.message);
-          }
-        }}
+        onDeleted={reload}
       />
     </>
   );

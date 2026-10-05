@@ -1,10 +1,11 @@
 const express = require('express');
 const multer = require('multer');
-const { query, one, transaction, buildUpdate } = require('../db/pool');
+const { query, one, transaction, updateRow } = require('../db/pool');
 const { ah, HttpError, parseId } = require('../lib/http');
 const { assertBikeOwner, findOwned } = require('../lib/ownership');
 const schemas = require('../lib/schemas');
 const { parseActivityFile } = require('../lib/gpx');
+const { listFilters } = require('../lib/filters');
 const config = require('../lib/config');
 
 const router = express.Router();
@@ -17,23 +18,8 @@ const withBike = (where) =>
    FROM rides r JOIN bikes b ON b.id = r.bike_id WHERE ${where}`;
 
 // Shared by the list and the map: optional bike and date filters on the user's rides.
-function rideFilters(q, userId) {
-  const params = [userId];
-  let where = 'b.user_id = $1';
-  if (q.bikeId) {
-    params.push(q.bikeId);
-    where += ` AND r.bike_id = $${params.length}`;
-  }
-  if (q.from) {
-    params.push(q.from);
-    where += ` AND (r.date AT TIME ZONE 'UTC')::date >= $${params.length}::date`;
-  }
-  if (q.to) {
-    params.push(q.to);
-    where += ` AND (r.date AT TIME ZONE 'UTC')::date <= $${params.length}::date`;
-  }
-  return { params, where };
-}
+const rideFilters = (q, userId) =>
+  listFilters(q, userId, { bikeCol: 'r.bike_id', dateCol: "(r.date AT TIME ZONE 'UTC')::date" });
 
 router.get(
   '/',
@@ -119,10 +105,7 @@ router.put(
     const existing = await findOwned('rides', id, req.userId);
     const d = schemas.rideUpdate.parse(req.body);
     if (d.bikeId !== undefined && d.bikeId !== existing.bikeId) await assertBikeOwner(d.bikeId, req.userId);
-    const { sets, values } = buildUpdate(d, FIELDS);
-    if (sets.length) {
-      await query(`UPDATE rides SET ${sets.join(', ')} WHERE id = $${values.length + 1}`, [...values, id]);
-    }
+    await updateRow('rides', id, d, FIELDS);
     res.json(await one(withBike('r.id = $1'), [id]));
   })
 );

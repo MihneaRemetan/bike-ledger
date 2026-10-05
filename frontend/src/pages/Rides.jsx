@@ -15,14 +15,12 @@ import { useLoad } from '../lib/useLoad';
 import { fmtDate, fmtDuration, fmtElev, fmtKm } from '../lib/format';
 import PageHeader from '../components/PageHeader';
 import EmptyState from '../components/EmptyState';
-import ConfirmDialog from '../components/ConfirmDialog';
+import DeleteDialog from '../components/DeleteDialog';
 import BikeFilter from '../components/BikeFilter';
 import GpxImportDialog from '../components/GpxImportDialog';
-import { useNotify } from '../components/Notify';
 import { RideFormDialog } from '../components/forms';
 
 export default function Rides() {
-  const notify = useNotify();
   const [bikeId, setBikeId] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
@@ -95,21 +93,14 @@ export default function Rides() {
 
       <RideFormDialog open={dlg?.kind === 'ride'} ride={dlg?.item} bikes={bikes} defaultBikeId={bikeId} onClose={close} onSaved={saved} />
       <GpxImportDialog open={dlg?.kind === 'gpx'} bikes={bikes} defaultBikeId={bikeId} onClose={close} onSaved={saved} />
-      <ConfirmDialog
-        open={Boolean(del)}
+      <DeleteDialog
+        item={del}
+        path="/rides"
         title="Delete ride?"
         text="Component wear will be recalculated without this ride."
+        deletedMessage="Ride deleted"
         onClose={() => setDel(null)}
-        onConfirm={async () => {
-          try {
-            await api(`/rides/${del.id}`, { method: 'DELETE' });
-            notify.success('Ride deleted');
-            setDel(null);
-            reload();
-          } catch (e) {
-            notify.error(e.message);
-          }
-        }}
+        onDeleted={reload}
       />
     </>
   );

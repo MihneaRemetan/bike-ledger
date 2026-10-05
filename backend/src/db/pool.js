@@ -53,4 +53,12 @@ function buildUpdate(data, allowedFields, startIndex = 1) {
   return { sets, values };
 }
 
-module.exports = { pool, query, one, transaction, buildUpdate };
+// Applies the whitelisted fields of data to one row. Table name comes from the caller, never from user input.
+async function updateRow(table, id, data, allowedFields, client) {
+  const { sets, values } = buildUpdate(data, allowedFields);
+  if (!sets.length) return false;
+  await query(`UPDATE ${table} SET ${sets.join(', ')} WHERE id = $${values.length + 1}`, [...values, id], client);
+  return true;
+}
+
+module.exports = { pool, query, one, transaction, buildUpdate, updateRow };

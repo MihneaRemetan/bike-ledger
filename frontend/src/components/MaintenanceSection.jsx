@@ -8,7 +8,7 @@ import { api } from '../api/client';
 import { useLoad } from '../lib/useLoad';
 import { COMPONENT_TYPES, SERVICE_TYPES, label } from '../lib/constants';
 import { fmtDate } from '../lib/format';
-import ConfirmDialog from './ConfirmDialog';
+import DeleteDialog from './DeleteDialog';
 import RuleBar from './RuleBar';
 import { useNotify } from './Notify';
 import { RuleFormDialog } from './forms';
@@ -86,21 +86,14 @@ export default function MaintenanceSection({ bikeId, parts, onChanged }) {
       </CardContent>
 
       <RuleFormDialog open={form.open} rule={form.rule} bikeId={bikeId} parts={parts} onClose={() => setForm({ open: false, rule: null })} onSaved={() => { setForm({ open: false, rule: null }); changed(); }} />
-      <ConfirmDialog
-        open={Boolean(del)}
+      <DeleteDialog
+        item={del}
+        path="/maintenance/rules"
         title="Delete rule?"
-        text={`"${del?.title}" will stop reminding you. Services you already logged are kept.`}
+        text={(r) => `"${r.title}" will stop reminding you. Services you already logged are kept.`}
+        deletedMessage="Rule deleted"
         onClose={() => setDel(null)}
-        onConfirm={async () => {
-          try {
-            await api(`/maintenance/rules/${del.id}`, { method: 'DELETE' });
-            notify.success('Rule deleted');
-            setDel(null);
-            changed();
-          } catch (e) {
-            notify.error(e.message);
-          }
-        }}
+        onDeleted={changed}
       />
     </Card>
   );

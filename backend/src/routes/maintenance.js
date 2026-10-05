@@ -1,6 +1,6 @@
 const express = require('express');
 const { z } = require('zod');
-const { query, one, buildUpdate } = require('../db/pool');
+const { query, one, updateRow } = require('../db/pool');
 const { ah, HttpError, parseId } = require('../lib/http');
 const { assertBikeOwner } = require('../lib/ownership');
 const schemas = require('../lib/schemas');
@@ -64,10 +64,7 @@ router.put(
     const days = d.everyDays === undefined ? existing.everyDays : d.everyDays;
     if (km == null && days == null) throw new HttpError(400, 'Set a distance, a number of days, or both');
 
-    const { sets, values } = buildUpdate(d, FIELDS);
-    if (sets.length) {
-      await query(`UPDATE maintenance_rules SET ${sets.join(', ')} WHERE id = $${values.length + 1}`, [...values, id]);
-    }
+    await updateRow('maintenance_rules', id, d, FIELDS);
     res.json(await findRule(id, req.userId));
   })
 );

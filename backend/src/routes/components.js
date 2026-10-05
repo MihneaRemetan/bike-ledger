@@ -1,5 +1,5 @@
 const express = require('express');
-const { query, one, transaction, buildUpdate } = require('../db/pool');
+const { query, one, transaction, updateRow } = require('../db/pool');
 const { ah, HttpError, parseId } = require('../lib/http');
 const { assertBikeOwner, findOwned } = require('../lib/ownership');
 const schemas = require('../lib/schemas');
@@ -98,10 +98,7 @@ router.put(
     }
 
     await transaction(async (client) => {
-      const { sets, values } = buildUpdate(d, FIELDS);
-      if (sets.length) {
-        await query(`UPDATE components SET ${sets.join(', ')} WHERE id = $${values.length + 1}`, [...values, id], client);
-      }
+      await updateRow('components', id, d, FIELDS, client);
       if (d.installedAt && d.installedAt !== existing.installedAt) {
         // the first mount starts on the installation day
         await query(
