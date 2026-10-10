@@ -28,14 +28,14 @@ const ROUTES = [
   { name: 'Evening ride home', kind: 'commute', via: [[21.24, 45.7669], [21.22, 45.758], [21.233, 45.736]] },
 ];
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms)); // arrow function
 
 async function main() {
   const out = [];
   for (const r of ROUTES) {
-    const coords = r.via.map((p) => p.join(',')).join(';');
-    const res = await fetch(`${BASE}/${coords}?overview=full&geometries=geojson`);
-    const data = await res.json();
+    const coords = r.via.map((p) => p.join(',')).join(';'); //pune totul intr o singura linie
+    const res = await fetch(`${BASE}/${coords}?overview=full&geometries=geojson`); //trimite o cerere (fetch) HTTP GET catre router si asteapta raspunsul
+    const data = await res.json(); //transforma raspunsul HTTP in obiect JSON
     if (data.code !== 'Ok') {
       console.error('FAILED', r.name, data.code);
       continue;
@@ -44,7 +44,7 @@ async function main() {
     const points = simplifyRoute(route.geometry.coordinates.map(([lon, lat]) => ({ lat, lon })));
     out.push({ name: r.name, kind: r.kind, distanceKm: Math.round(route.distance / 100) / 10, points });
     console.log(r.name, route.distance / 1000, 'km', points.length, 'points');
-    await sleep(1500);
+    await sleep(1500); //delay intre cereri pt a evita supraincarcarea serverului public
   }
   fs.writeFileSync(path.join(__dirname, '../src/db/demo-routes.json'), JSON.stringify(out));
 }
